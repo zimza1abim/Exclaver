@@ -2853,6 +2853,68 @@ fun buildCustomConfig(proxy: ProxyEntity, forTest: Boolean = false, forExport: B
     val inbounds = config.getArray("inbounds")
         ?.map { gson.fromJson(it.toString(), InboundObject::class.java) }
         ?.toMutableList() ?: ArrayList()
+    val isSmartRouteConfig = runCatching {
+        config.getArray("outbounds")?.any { outbound ->
+            outbound.asJsonObject?.get("tag")?.asString in setOf("smart-default", "smart-bypass")
+        } == true
+    }.getOrDefault(false)
+
+    if (!forTest && !forExport && isSmartRouteConfig) {
+        val bind = if (DataStore.allowAccess) "0.0.0.0" else LOCALHOST
+        inbounds.removeAll { it.tag == TAG_SOCKS || it.tag == TAG_HTTP }
+        val inboundTags = inbounds.mapNotNull { it.tag }.toSet()
+        fun smartRouteSniffing(protocols: List<String>) = InboundObject.SniffingObject().apply {
+            enabled = true
+            destOverride = protocols
+            routeOnly = true
+        }
+        if (DataStore.requireSocks && TAG_SOCKS !in inboundTags) {
+            inbounds.add(InboundObject().apply {
+                tag = TAG_SOCKS
+                listen = bind
+                port = DataStore.socksPort
+                protocol = "socks"
+                settings = LazyInboundConfigurationObject(this, SocksInboundConfigurationObject().apply {
+                    if (DataStore.socksUsername.isEmpty() && DataStore.socksPassword.isEmpty()) {
+                        auth = "noauth"
+                    } else if (DataStore.socksUsername.isEmpty() && DataStore.socksPassword.isNotEmpty()) {
+                        error("username is empty but password is not empty for SOCKS5 inbound")
+                    } else if (DataStore.socksUsername.isNotEmpty() && DataStore.socksPassword.isEmpty()) {
+                        error("username is not empty but password is empty for SOCKS5 inbound")
+                    } else {
+                        auth = "password"
+                        accounts = listOf(SocksInboundConfigurationObject.AccountObject().apply {
+                            user = DataStore.socksUsername
+                            pass = DataStore.socksPassword
+                        })
+                    }
+                    udp = DataStore.socksUDP
+                })
+                sniffing = smartRouteSniffing(listOf("http", "tls", "quic"))
+                if (shouldDumpUID) dumpUID = true
+            })
+        }
+        if (DataStore.requireHttp && TAG_HTTP !in inboundTags) {
+            inbounds.add(InboundObject().apply {
+                tag = TAG_HTTP
+                listen = bind
+                port = DataStore.httpPort
+                protocol = "http"
+                settings = LazyInboundConfigurationObject(this,
+                    HTTPInboundConfigurationObject().apply {
+                        allowTransparent = true
+                        if (DataStore.httpUsername.isNotEmpty() || DataStore.httpPassword.isNotEmpty()) {
+                            accounts = listOf(HTTPInboundConfigurationObject.AccountObject().apply {
+                                user = DataStore.httpUsername
+                                pass = DataStore.httpPassword
+                            })
+                        }
+                    })
+                sniffing = smartRouteSniffing(listOf("http", "tls"))
+                if (shouldDumpUID) dumpUID = true
+            })
+        }
+    }
 
     if (!forTest && !forExport) {
         inbounds.add(InboundObject().apply {

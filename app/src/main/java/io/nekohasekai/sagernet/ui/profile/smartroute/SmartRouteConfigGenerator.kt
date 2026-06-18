@@ -15,6 +15,7 @@ import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.database.DataStore
 
 data class SmartRouteGeneratedConfig(
     val json: String,
@@ -39,6 +40,10 @@ object SmartRouteConfigGenerator {
             })
         })
         root.add("log", JsonObject().apply { addProperty("loglevel", "warning") })
+        root.add("inbounds", JsonArray().apply {
+            if (DataStore.requireSocks) add(socksInbound())
+            if (DataStore.requireHttp) add(httpInbound())
+        })
         root.add("outbounds", JsonArray().apply {
             add(wireGuardOutbound("smart-default", default))
             add(wireGuardOutbound("smart-bypass", bypass))
@@ -96,5 +101,62 @@ object SmartRouteConfigGenerator {
                 })
             })
         }
+    }
+
+    private fun socksInbound(): JsonObject {
+        return JsonObject().apply {
+            addProperty("tag", "socks")
+            addProperty("listen", listenAddress())
+            addProperty("port", DataStore.socksPort)
+            addProperty("protocol", "socks")
+            add("settings", JsonObject().apply {
+                if (DataStore.socksUsername.isEmpty() && DataStore.socksPassword.isEmpty()) {
+                    addProperty("auth", "noauth")
+                } else if (DataStore.socksUsername.isNotEmpty() && DataStore.socksPassword.isNotEmpty()) {
+                    addProperty("auth", "password")
+                    add("accounts", JsonArray().apply {
+                        add(JsonObject().apply {
+                            addProperty("user", DataStore.socksUsername)
+                            addProperty("pass", DataStore.socksPassword)
+                        })
+                    })
+                }
+                addProperty("udp", DataStore.socksUDP)
+            })
+            add("sniffing", smartRouteSniffing(listOf("http", "tls", "quic")))
+        }
+    }
+
+    private fun httpInbound(): JsonObject {
+        return JsonObject().apply {
+            addProperty("tag", "http")
+            addProperty("listen", listenAddress())
+            addProperty("port", DataStore.httpPort)
+            addProperty("protocol", "http")
+            add("settings", JsonObject().apply {
+                addProperty("allowTransparent", true)
+                if (DataStore.httpUsername.isNotEmpty() || DataStore.httpPassword.isNotEmpty()) {
+                    add("accounts", JsonArray().apply {
+                        add(JsonObject().apply {
+                            addProperty("user", DataStore.httpUsername)
+                            addProperty("pass", DataStore.httpPassword)
+                        })
+                    })
+                }
+            })
+            add("sniffing", smartRouteSniffing(listOf("http", "tls")))
+        }
+    }
+
+    private fun smartRouteSniffing(protocols: List<String>): JsonObject {
+        return JsonObject().apply {
+            addProperty("enabled", true)
+            add("destOverride", JsonArray().apply { protocols.forEach { add(it) } })
+            addProperty("routeOnly", true)
+        }
+    }
+
+    private fun listenAddress(): String {
+        return if (DataStore.allowAccess) "0.0.0.0" else "127.0.0.1"
     }
 }
