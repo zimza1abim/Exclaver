@@ -19,9 +19,13 @@
 
 package io.nekohasekai.sagernet.bg
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequest
@@ -97,7 +101,16 @@ object SubscriptionUpdater {
                         R.string.subscription_update_message, profile.displayName()
                     )
                 )
-                nm.notify(2, notification.build())
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                    ContextCompat.checkSelfPermission(
+                        applicationContext,
+                        Manifest.permission.POST_NOTIFICATIONS,
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    runCatching {
+                        nm.notify(2, notification.build())
+                    }
+                }
 
                 GroupUpdater.executeUpdate(profile, false)
             }
