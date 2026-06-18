@@ -195,6 +195,8 @@
         <activity
             android:name="io.nekohasekai.sagernet.ui.profile.ConfigSettingsActivity" />
         <activity
+            android:name="io.nekohasekai.sagernet.ui.profile.SmartRouteSettingsActivity" />
+        <activity
             android:name="io.nekohasekai.sagernet.ui.profile.ConfigEditActivity" />
         <activity
             android:name="io.nekohasekai.sagernet.ui.profile.ChainSettingsActivity" />

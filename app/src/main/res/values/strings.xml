@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">Exclave</string>
+    <string name="app_name" translatable="false">Exclaver</string>
     <string name="project">Project</string>
     <string name="github">Source code</string>
     <string name="app_version">Version</string>
@@ -615,4 +615,41 @@
     <string name="custom_outbound">Custom outbound</string>
     <string name="hysteria2_gecko_max_packet_size">Maximum packet size</string>
     <string name="hysteria2_gecko_min_packet_size">Minimum packet size</string>
+    <string name="smart_route">Smart Route</string>
+    <string name="smart_route_default_profile_name">Smart Route</string>
+    <string name="smart_route_default_conf">Default route conf</string>
+    <string name="smart_route_default_conf_summary">WireGuard conf used for normal traffic. Usually WARP.</string>
+    <string name="smart_route_bypass_conf">Bypass route conf</string>
+    <string name="smart_route_bypass_conf_summary">WireGuard conf used only for selected domains. Usually Proton.</string>
+    <string name="smart_route_load_from_file">Load from file</string>
+    <string name="smart_route_paste_from_clipboard">Paste from clipboard</string>
+    <string name="smart_route_view_edit_content">View/Edit content</string>
+    <string name="smart_route_clear">Clear</string>
+    <string name="smart_route_domain_list">Domains to send to Proton</string>
+    <string name="smart_route_domain_list_summary">Only domains in this list use the bypass route. Everything else uses the default route.</string>
+    <string name="smart_route_domain_help">domain:example.com = example.com and all subdomains\nfull:example.com = example.com only\nkeyword:example = domains containing example\ngeosite:google = geosite data rule</string>
+    <string name="smart_route_import_txt">Import from txt file</string>
+    <string name="smart_route_export_txt">Export to txt file</string>
+    <string name="smart_route_dedupe">Normalize / remove duplicates</string>
+    <string name="smart_route_sort">Sort</string>
+    <string name="smart_route_clear_all">Clear all</string>
+    <string name="smart_route_preview_json">Preview generated JSON</string>
+    <string name="smart_route_copy_json">Copy JSON</string>
+    <string name="smart_route_save_profile">Save as custom profile</string>
+    <string name="smart_route_validate">Validate config</string>
+    <string name="smart_route_validation_ok">Config is valid.</string>
+    <string name="smart_route_json_copied">JSON copied.</string>
+    <string name="smart_route_saved">Smart Route profile saved.</string>
+    <string name="smart_route_default_loaded">Default route conf loaded.</string>
+    <string name="smart_route_bypass_loaded">Bypass route conf loaded.</string>
+    <string name="smart_route_cleared">Cleared.</string>
+    <string name="smart_route_error_private_key_missing">PrivateKey is missing.</string>
+    <string name="smart_route_error_peer_public_key_missing">Peer PublicKey is missing.</string>
+    <string name="smart_route_error_endpoint_missing">Endpoint is missing.</string>
+    <string name="smart_route_error_address_missing">Address is missing.</string>
+    <string name="smart_route_error_endpoint_port_invalid">Endpoint port is invalid.</string>
+    <string name="smart_route_error_invalid_wireguard_conf">WireGuard conf could not be read.</string>
+    <string name="smart_route_error_invalid_domain">Invalid domain input.</string>
+    <string name="smart_route_error_domain_empty">Add at least one domain.</string>
+    <string name="smart_route_warning_multiple_peers">Multiple peers found. The first valid peer was used.</string>
 </resources>

@@ -97,6 +97,9 @@ fun parseWireGuardConfig(conf: String): List<WireGuardBean> {
             ?: return beans
         privateKey = iface.getOr("PrivateKey").getOrNull() ?: return beans
         mtu = iface.getOr("MTU").getOrNull()?.toInt()?.takeIf { it > 0 } ?: 1420
+        reserved = iface.getOr("Reserved").getOrNull()
+            ?: iface.getOr("reserved").getOrNull()
+            ?: ""
     }
     val peers = ini.allSectionsOr("Peer").getOrNull() ?: return beans
     for (peer in peers) {
@@ -109,6 +112,7 @@ fun parseWireGuardConfig(conf: String): List<WireGuardBean> {
             serverPort = endpoint.substringAfterLast(":").toIntOrNull() ?: continue
             peerPublicKey = peer.getOr("PublicKey").getOrNull() ?: continue
             peerPreSharedKey = peer.getOr("PreSharedKey").getOrNull()
+                ?: peer.getOr("PresharedKey").getOrNull()
             keepaliveInterval = peer.getOr("PersistentKeepalive").getOrNull()?.toIntOrNull()?.takeIf { it > 0 }
         })
     }

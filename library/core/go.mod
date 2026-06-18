@@ -71,3 +71,5 @@ require (
 )
 
 replace gvisor.dev/gvisor => gvisor.dev/gvisor v0.0.0-20250429202743-3a608a52255d
+
+tool golang.org/x/mobile/cmd/gobind
