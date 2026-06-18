@@ -632,6 +632,7 @@
     <string name="smart_route_add_domain">Add domain</string>
     <string name="smart_route_domains_added">Added %d domains.</string>
     <string name="smart_route_checked_domains">Checked domains</string>
+    <string name="smart_route_checked_domains_count">Domains (%d)</string>
     <string name="smart_route_remove_checked_domains">Remove checked domains</string>
     <string name="smart_route_advanced_domain_edit">Advanced domain edit</string>
     <string name="smart_route_import_txt">Import from txt file</string>

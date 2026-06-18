@@ -139,6 +139,7 @@
     <string name="smart_route_add_domain">도메인 추가</string>
     <string name="smart_route_domains_added">도메인 %d개를 추가했습니다.</string>
     <string name="smart_route_checked_domains">체크한 도메인</string>
+    <string name="smart_route_checked_domains_count">도메인 %d개</string>
     <string name="smart_route_remove_checked_domains">체크한 도메인 제외</string>
     <string name="smart_route_advanced_domain_edit">고급 도메인 편집</string>
     <string name="smart_route_import_txt">txt 파일에서 가져오기</string>

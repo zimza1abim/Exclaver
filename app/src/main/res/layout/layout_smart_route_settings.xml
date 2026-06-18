@@ -155,17 +155,18 @@
                 android:text="@string/smart_route_add_domain" />
 
             <TextView
+                android:id="@+id/domain_count"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="@string/smart_route_checked_domains"
                 android:textAppearance="?attr/textAppearanceSubtitle1" />
 
-            <ListView
+            <LinearLayout
                 android:id="@+id/domain_checked_list"
                 android:layout_width="match_parent"
-                android:layout_height="220dp"
-                android:choiceMode="multipleChoice" />
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
 
             <Button
                 android:id="@+id/domains_remove_checked"

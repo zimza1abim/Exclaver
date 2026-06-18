@@ -15,12 +15,13 @@ import android.net.Uri
 import android.os.Bundle
 import android.text.InputType
 import android.view.MenuItem
-import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
-import android.widget.ListView
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.Toolbar
+import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputEditText
@@ -55,8 +56,8 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
 
     private lateinit var profileName: TextInputEditText
     private lateinit var domainInput: TextInputEditText
-    private lateinit var domainListView: ListView
-    private lateinit var domainAdapter: ArrayAdapter<String>
+    private lateinit var domainCount: TextView
+    private lateinit var domainListView: LinearLayout
 
     private val importFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri ?: return@registerForActivityResult
@@ -107,11 +108,10 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
 
         profileName = findViewById(R.id.profile_name)
         domainInput = findViewById(R.id.domain_input)
+        domainCount = findViewById(R.id.domain_count)
         domainListView = findViewById(R.id.domain_checked_list)
-        domainAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_multiple_choice, ArrayList<String>())
-        domainListView.adapter = domainAdapter
-        domainListView.choiceMode = ListView.CHOICE_MODE_MULTIPLE
         profileName.setText(getString(R.string.smart_route_default_profile_name))
+        setDomains(emptyList())
         loadManagedSmartRoute()
 
         findViewById<Button>(R.id.default_from_file).setOnClickListener {
@@ -244,11 +244,11 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
     }
 
     private fun removeCheckedDomains() {
-        val checked = domainListView.checkedItemPositions
-        val remaining = (0 until domainAdapter.count)
-            .filterNot { checked.get(it) }
-            .map { domainAdapter.getItem(it).orEmpty() }
-            .filter { it.isNotEmpty() }
+        val checked = (0 until domainListView.childCount)
+            .filter { index -> (domainListView.getChildAt(index) as? MaterialCheckBox)?.isChecked == true }
+            .toSet()
+        if (checked.isEmpty()) return
+        val remaining = domainItems.filterIndexed { index, _ -> index !in checked }
         setDomains(remaining)
         generatedJson = ""
     }
@@ -256,10 +256,15 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
     private fun setDomains(values: List<String>) {
         domainItems.clear()
         domainItems.addAll(values)
-        domainAdapter.clear()
-        domainAdapter.addAll(values)
-        domainAdapter.notifyDataSetChanged()
-        domainListView.clearChoices()
+        domainCount.text = getString(R.string.smart_route_checked_domains_count, values.size)
+        domainListView.removeAllViews()
+        values.forEach { domain ->
+            domainListView.addView(MaterialCheckBox(this).apply {
+                text = domain
+                isSingleLine = false
+                setPadding(0, 4, 0, 4)
+            })
+        }
     }
 
     private fun generateOrShow(updateDomainText: Boolean) = try {
