@@ -63,7 +63,7 @@ import io.nekohasekai.sagernet.fmt.Alerts
 import io.nekohasekai.sagernet.fmt.PluginEntry
 import io.nekohasekai.sagernet.group.GroupInterfaceAdapter
 import io.nekohasekai.sagernet.ktx.*
-import io.nekohasekai.sagernet.ui.profile.SmartRouteSettingsActivity
+import io.nekohasekai.sagernet.ui.profile.SmartRouteFragment
 import io.nekohasekai.sagernet.utils.PackageCache
 import io.noties.markwon.Markwon
 import libexclavecore.Libexclavecore
@@ -349,10 +349,7 @@ class MainActivity : ThemedActivity(),
             }
             R.id.nav_group -> displayFragment(GroupFragment())
             R.id.nav_route -> displayFragment(RouteFragment())
-            R.id.nav_smart_route -> {
-                startActivity(Intent(this, SmartRouteSettingsActivity::class.java))
-                binding.drawerLayout.closeDrawers()
-            }
+            R.id.nav_smart_route -> displayFragment(SmartRouteFragment())
             R.id.nav_settings -> displayFragment(SettingsFragment())
             R.id.nav_traffic -> {
                 displayFragment(TrafficFragment())

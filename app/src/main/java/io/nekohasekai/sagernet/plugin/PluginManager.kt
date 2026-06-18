@@ -34,6 +34,7 @@ import android.os.Build
 import android.system.Os
 import android.widget.Toast
 import androidx.core.os.bundleOf
+import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.bg.BaseService
@@ -96,8 +97,13 @@ object PluginManager {
                 flags or PackageManager.MATCH_DIRECT_BOOT_UNAWARE or PackageManager.MATCH_DIRECT_BOOT_AWARE
         }
         var providers = SagerNet.application.packageManager.queryIntentContentProviders(
-            Intent(PluginContract.ACTION_NATIVE_PLUGIN, buildUri(pluginId, "com.github.dyhkwong.sagernet")), flags)
+            Intent(PluginContract.ACTION_NATIVE_PLUGIN, buildUri(pluginId, BuildConfig.APPLICATION_ID)), flags)
             .filter { it.providerInfo.exported }
+        if (providers.isEmpty()) {
+            providers = SagerNet.application.packageManager.queryIntentContentProviders(
+                Intent(PluginContract.ACTION_NATIVE_PLUGIN, buildUri(pluginId, "com.github.dyhkwong.sagernet")), flags)
+                .filter { it.providerInfo.exported }
+        }
         if (providers.isEmpty()) {
             try {
                 initNativeInternal(pluginId)?.also { return InitResult(it) }

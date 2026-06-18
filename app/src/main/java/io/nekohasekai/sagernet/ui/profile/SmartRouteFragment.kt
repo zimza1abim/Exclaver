@@ -13,17 +13,18 @@ package io.nekohasekai.sagernet.ui.profile
 
 import android.net.Uri
 import android.os.Bundle
+import android.text.Editable
 import android.text.InputType
-import android.view.MenuItem
+import android.text.TextWatcher
+import android.view.View
+import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.widget.Toolbar
 import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputEditText
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
@@ -32,14 +33,15 @@ import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.fmt.internal.ConfigBean
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
+import io.nekohasekai.sagernet.ktx.snackbar
 import io.nekohasekai.sagernet.ktx.startFilesForResult
-import io.nekohasekai.sagernet.ui.ThemedActivity
+import io.nekohasekai.sagernet.ui.ToolbarFragment
 import io.nekohasekai.sagernet.ui.profile.smartroute.SmartRouteConfigGenerator
 import io.nekohasekai.sagernet.ui.profile.smartroute.SmartRouteDomainNormalizer
 import io.nekohasekai.sagernet.ui.profile.smartroute.SmartRouteInputException
 import java.io.OutputStreamWriter
 
-class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_settings) {
+class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings) {
 
     private enum class ImportTarget {
         DefaultConf,
@@ -52,12 +54,30 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
     private var bypassConf = ""
     private var generatedJson = ""
     private var managedProfileId = 0L
+    private var setupExpanded = true
+    private var domainToolsExpanded = false
+    private var jsonToolsExpanded = false
+
     private val domainItems = ArrayList<String>()
+    private val selectedDomains = LinkedHashSet<String>()
 
     private lateinit var profileName: TextInputEditText
     private lateinit var domainInput: TextInputEditText
+    private lateinit var domainSearch: TextInputEditText
     private lateinit var domainCount: TextView
+    private lateinit var domainEmpty: TextView
     private lateinit var domainListView: LinearLayout
+    private lateinit var status: TextView
+    private lateinit var defaultConfStatus: TextView
+    private lateinit var bypassConfStatus: TextView
+    private lateinit var setupSection: View
+    private lateinit var defaultConfActions: View
+    private lateinit var bypassConfActions: View
+    private lateinit var domainToolsSection: View
+    private lateinit var jsonToolsSection: View
+    private lateinit var toggleSetup: Button
+    private lateinit var toggleDomainTools: Button
+    private lateinit var toggleJsonTools: Button
 
     private val importFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri ?: return@registerForActivityResult
@@ -66,10 +86,12 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
             ImportTarget.DefaultConf -> {
                 defaultConf = text
                 showMessage(R.string.smart_route_default_loaded)
+                if (hasCompleteConf()) setupExpanded = false
             }
             ImportTarget.BypassConf -> {
                 bypassConf = text
                 showMessage(R.string.smart_route_bypass_loaded)
+                if (hasCompleteConf()) setupExpanded = false
             }
             ImportTarget.Domains -> {
                 try {
@@ -80,12 +102,13 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
             }
         }
         generatedJson = ""
+        applyResponsiveState()
     }
 
     private val exportDomains = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
         uri ?: return@registerForActivityResult
         runCatching {
-            contentResolver.openOutputStream(uri)?.use { stream ->
+            requireContext().contentResolver.openOutputStream(uri)?.use { stream ->
                 OutputStreamWriter(stream).use { writer ->
                     writer.write(domainItems.joinToString("\n"))
                 }
@@ -97,73 +120,106 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
         }
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setSupportActionBar(findViewById<Toolbar>(R.id.toolbar))
-        supportActionBar?.apply {
-            setTitle(R.string.smart_route)
-            setDisplayHomeAsUpEnabled(true)
-            setHomeAsUpIndicator(R.drawable.ic_navigation_close)
-        }
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        toolbar.setTitle(R.string.smart_route)
 
-        profileName = findViewById(R.id.profile_name)
-        domainInput = findViewById(R.id.domain_input)
-        domainCount = findViewById(R.id.domain_count)
-        domainListView = findViewById(R.id.domain_checked_list)
+        bindViews(view)
         profileName.setText(getString(R.string.smart_route_default_profile_name))
-        setDomains(emptyList())
+        setDomains(emptyList(), resetSelection = true)
         loadManagedSmartRoute()
+        setupExpanded = !hasCompleteConf()
 
-        findViewById<Button>(R.id.default_from_file).setOnClickListener {
+        wireActions()
+        applyResponsiveState()
+    }
+
+    private fun bindViews(view: View) {
+        profileName = view.findViewById(R.id.profile_name)
+        domainInput = view.findViewById(R.id.domain_input)
+        domainSearch = view.findViewById(R.id.domain_search)
+        domainCount = view.findViewById(R.id.domain_count)
+        domainEmpty = view.findViewById(R.id.domain_empty)
+        domainListView = view.findViewById(R.id.domain_checked_list)
+        status = view.findViewById(R.id.smart_route_status)
+        defaultConfStatus = view.findViewById(R.id.default_conf_status)
+        bypassConfStatus = view.findViewById(R.id.bypass_conf_status)
+        setupSection = view.findViewById(R.id.setup_section)
+        defaultConfActions = view.findViewById(R.id.default_conf_actions)
+        bypassConfActions = view.findViewById(R.id.bypass_conf_actions)
+        domainToolsSection = view.findViewById(R.id.domain_tools_section)
+        jsonToolsSection = view.findViewById(R.id.json_tools_section)
+        toggleSetup = view.findViewById(R.id.toggle_setup)
+        toggleDomainTools = view.findViewById(R.id.toggle_domain_tools)
+        toggleJsonTools = view.findViewById(R.id.toggle_json_tools)
+    }
+
+    private fun wireActions() {
+        requireView().findViewById<Button>(R.id.default_from_file).setOnClickListener {
             importTarget = ImportTarget.DefaultConf
             startFilesForResult(importFile, "*/*")
         }
-        findViewById<Button>(R.id.bypass_from_file).setOnClickListener {
+        requireView().findViewById<Button>(R.id.bypass_from_file).setOnClickListener {
             importTarget = ImportTarget.BypassConf
             startFilesForResult(importFile, "*/*")
         }
-        findViewById<Button>(R.id.domains_from_file).setOnClickListener {
+        requireView().findViewById<Button>(R.id.domains_from_file).setOnClickListener {
             importTarget = ImportTarget.Domains
             startFilesForResult(importFile, "text/*")
         }
-        findViewById<Button>(R.id.domains_export_file).setOnClickListener {
+        requireView().findViewById<Button>(R.id.domains_export_file).setOnClickListener {
             exportDomains.launch("smart-route-domains.txt")
         }
 
-        findViewById<Button>(R.id.default_from_clipboard).setOnClickListener { pasteConf(default = true) }
-        findViewById<Button>(R.id.bypass_from_clipboard).setOnClickListener { pasteConf(default = false) }
-        findViewById<Button>(R.id.default_edit).setOnClickListener {
+        requireView().findViewById<Button>(R.id.default_from_clipboard).setOnClickListener { pasteConf(default = true) }
+        requireView().findViewById<Button>(R.id.bypass_from_clipboard).setOnClickListener { pasteConf(default = false) }
+        requireView().findViewById<Button>(R.id.default_edit).setOnClickListener {
             editTextDialog(R.string.smart_route_default_conf, defaultConf) {
                 defaultConf = it
                 generatedJson = ""
+                if (hasCompleteConf()) setupExpanded = false
+                applyResponsiveState()
             }
         }
-        findViewById<Button>(R.id.bypass_edit).setOnClickListener {
+        requireView().findViewById<Button>(R.id.bypass_edit).setOnClickListener {
             editTextDialog(R.string.smart_route_bypass_conf, bypassConf) {
                 bypassConf = it
                 generatedJson = ""
+                if (hasCompleteConf()) setupExpanded = false
+                applyResponsiveState()
             }
         }
-        findViewById<Button>(R.id.default_clear).setOnClickListener {
+        requireView().findViewById<Button>(R.id.default_clear).setOnClickListener {
             defaultConf = ""
             generatedJson = ""
+            setupExpanded = true
             showMessage(R.string.smart_route_cleared)
+            applyResponsiveState()
         }
-        findViewById<Button>(R.id.bypass_clear).setOnClickListener {
+        requireView().findViewById<Button>(R.id.bypass_clear).setOnClickListener {
             bypassConf = ""
             generatedJson = ""
+            setupExpanded = true
             showMessage(R.string.smart_route_cleared)
+            applyResponsiveState()
         }
-        findViewById<Button>(R.id.domain_add).setOnClickListener { addDomainsFromInput() }
-        findViewById<Button>(R.id.domains_remove_checked).setOnClickListener { removeCheckedDomains() }
-        findViewById<Button>(R.id.domains_advanced_edit).setOnClickListener { editDomainsAdvanced() }
-        findViewById<Button>(R.id.domains_normalize).setOnClickListener { normalizeDomains(sort = false) }
-        findViewById<Button>(R.id.domains_sort).setOnClickListener { normalizeDomains(sort = true) }
-        findViewById<Button>(R.id.domains_clear).setOnClickListener {
-            setDomains(emptyList())
+
+        requireView().findViewById<Button>(R.id.domain_add).setOnClickListener { addDomainsFromInput() }
+        requireView().findViewById<Button>(R.id.domains_select_visible).setOnClickListener { selectVisibleDomains() }
+        requireView().findViewById<Button>(R.id.domains_clear_selection).setOnClickListener {
+            selectedDomains.clear()
+            renderDomainList()
+        }
+        requireView().findViewById<Button>(R.id.domains_remove_checked).setOnClickListener { removeCheckedDomains() }
+        requireView().findViewById<Button>(R.id.domains_advanced_edit).setOnClickListener { editDomainsAdvanced() }
+        requireView().findViewById<Button>(R.id.domains_normalize).setOnClickListener { normalizeDomains(sort = false) }
+        requireView().findViewById<Button>(R.id.domains_sort).setOnClickListener { normalizeDomains(sort = true) }
+        requireView().findViewById<Button>(R.id.domains_clear).setOnClickListener {
+            setDomains(emptyList(), resetSelection = true)
             generatedJson = ""
         }
-        findViewById<Button>(R.id.validate_config).setOnClickListener {
+
+        requireView().findViewById<Button>(R.id.validate_config).setOnClickListener {
             generateOrShow(updateDomainText = true)?.let { result ->
                 val warning = result.warnings.distinct().joinToString("\n") { getString(it) }
                 showInfo(
@@ -172,31 +228,44 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
                 )
             }
         }
-        findViewById<Button>(R.id.preview_json).setOnClickListener {
+        requireView().findViewById<Button>(R.id.preview_json).setOnClickListener {
             generateOrShow(updateDomainText = true)?.let {
                 showInfo(getString(R.string.smart_route_preview_json), it.json)
             }
         }
-        findViewById<Button>(R.id.copy_json).setOnClickListener {
+        requireView().findViewById<Button>(R.id.copy_json).setOnClickListener {
             val json = generateOrShow(updateDomainText = true)?.json ?: return@setOnClickListener
             SagerNet.trySetPrimaryClip(json)
             showMessage(R.string.smart_route_json_copied)
         }
-        findViewById<Button>(R.id.save_profile).setOnClickListener {
-            saveProfile()
-        }
-    }
+        requireView().findViewById<Button>(R.id.save_profile).setOnClickListener { saveProfile() }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == android.R.id.home) {
-            finish()
-            return true
+        toggleSetup.setOnClickListener {
+            setupExpanded = !setupExpanded
+            applyResponsiveState()
         }
-        return super.onOptionsItemSelected(item)
-    }
+        toggleDomainTools.setOnClickListener {
+            domainToolsExpanded = !domainToolsExpanded
+            applyResponsiveState()
+        }
+        toggleJsonTools.setOnClickListener {
+            jsonToolsExpanded = !jsonToolsExpanded
+            applyResponsiveState()
+        }
 
-    override fun snackbarInternal(text: CharSequence): Snackbar {
-        return Snackbar.make(findViewById(R.id.smart_route_root), text, Snackbar.LENGTH_LONG)
+        domainInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                addDomainsFromInput()
+                true
+            } else {
+                false
+            }
+        }
+        domainSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = renderDomainList()
+            override fun afterTextChanged(s: Editable?) = Unit
+        })
     }
 
     private fun pasteConf(default: Boolean) {
@@ -213,6 +282,8 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
             showMessage(R.string.smart_route_bypass_loaded)
         }
         generatedJson = ""
+        if (hasCompleteConf()) setupExpanded = false
+        applyResponsiveState()
     }
 
     private fun normalizeDomains(sort: Boolean) {
@@ -237,34 +308,103 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
             setDomains(merged)
             domainInput.setText("")
             generatedJson = ""
-            showInfo(getString(R.string.smart_route_add_domain), getString(R.string.smart_route_domains_added, added))
+            showMessage(getString(R.string.smart_route_domains_added, added))
         } catch (e: SmartRouteInputException) {
             showError(formatInputError(e))
         }
     }
 
+    private fun selectVisibleDomains() {
+        selectedDomains.addAll(filteredDomains())
+        renderDomainList()
+    }
+
     private fun removeCheckedDomains() {
-        val checked = (0 until domainListView.childCount)
-            .filter { index -> (domainListView.getChildAt(index) as? MaterialCheckBox)?.isChecked == true }
-            .toSet()
-        if (checked.isEmpty()) return
-        val remaining = domainItems.filterIndexed { index, _ -> index !in checked }
-        setDomains(remaining)
+        if (selectedDomains.isEmpty()) {
+            showMessage(R.string.smart_route_no_selected_domains)
+            return
+        }
+        setDomains(domainItems.filterNot { it in selectedDomains }, resetSelection = true)
         generatedJson = ""
     }
 
-    private fun setDomains(values: List<String>) {
+    private fun setDomains(values: List<String>, resetSelection: Boolean = false) {
         domainItems.clear()
-        domainItems.addAll(values)
-        domainCount.text = getString(R.string.smart_route_checked_domains_count, values.size)
+        domainItems.addAll(values.distinct())
+        if (resetSelection) {
+            selectedDomains.clear()
+        } else {
+            selectedDomains.retainAll(domainItems.toSet())
+        }
+        renderDomainList()
+    }
+
+    private fun renderDomainList() {
+        val visibleDomains = filteredDomains()
         domainListView.removeAllViews()
-        values.forEach { domain ->
-            domainListView.addView(MaterialCheckBox(this).apply {
+        visibleDomains.forEach { domain ->
+            domainListView.addView(MaterialCheckBox(requireContext()).apply {
                 text = domain
                 isSingleLine = false
+                isChecked = domain in selectedDomains
                 setPadding(0, 4, 0, 4)
+                setOnCheckedChangeListener { _, checked ->
+                    if (checked) selectedDomains.add(domain) else selectedDomains.remove(domain)
+                    updateDomainCount()
+                }
+                setOnLongClickListener {
+                    editDomain(domain)
+                    true
+                }
             })
         }
+        domainEmpty.visibility = if (visibleDomains.isEmpty()) View.VISIBLE else View.GONE
+        updateDomainCount()
+    }
+
+    private fun updateDomainCount() {
+        val visible = filteredDomains().size
+        domainCount.text = if (domainFilter().isBlank()) {
+            getString(R.string.smart_route_domains_count_selected, domainItems.size, selectedDomains.size)
+        } else {
+            getString(R.string.smart_route_domains_filtered_count, visible, domainItems.size, selectedDomains.size)
+        }
+    }
+
+    private fun filteredDomains(): List<String> {
+        val filter = domainFilter()
+        return if (filter.isBlank()) {
+            domainItems
+        } else {
+            domainItems.filter { it.contains(filter, ignoreCase = true) }
+        }
+    }
+
+    private fun domainFilter() = domainSearch.text?.toString()?.trim().orEmpty()
+
+    private fun editDomain(domain: String) {
+        val edit = EditText(requireContext()).apply {
+            setText(domain)
+            setSingleLine(true)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.smart_route_edit_domain)
+            .setView(edit)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                try {
+                    val replacement = SmartRouteDomainNormalizer.normalizeLines(edit.text.toString())
+                    if (replacement.isEmpty()) throw SmartRouteInputException(R.string.smart_route_error_domain_empty)
+                    val updated = domainItems.flatMap { if (it == domain) replacement else listOf(it) }.distinct()
+                    selectedDomains.remove(domain)
+                    setDomains(updated)
+                    generatedJson = ""
+                } catch (e: SmartRouteInputException) {
+                    showError(formatInputError(e))
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun generateOrShow(updateDomainText: Boolean) = try {
@@ -315,9 +455,9 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
                 .putString("${profile.id}.json", result.json)
                 .apply()
             onMainDispatcher {
+                setupExpanded = false
                 showMessage(R.string.smart_route_saved)
-                setResult(RESULT_OK)
-                finish()
+                applyResponsiveState()
             }
         }
     }
@@ -338,16 +478,35 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
         generatedJson = prefs.getString("${managedProfileId}.json", "").orEmpty()
         val savedDomains = prefs.getString("${managedProfileId}.domains", "").orEmpty()
         if (savedDomains.isNotBlank()) {
-            setDomains(SmartRouteDomainNormalizer.normalizeLines(savedDomains))
+            setDomains(SmartRouteDomainNormalizer.normalizeLines(savedDomains), resetSelection = true)
         }
     }
 
-    private fun smartRoutePrefs() = getSharedPreferences("smart_route_profiles", MODE_PRIVATE)
+    private fun applyResponsiveState() {
+        val configured = hasCompleteConf() && managedProfileId > 0L && ProfileManager.getProfile(managedProfileId) != null
+        status.setText(if (configured) R.string.smart_route_configured_summary else R.string.smart_route_not_configured)
+        defaultConfStatus.setText(if (defaultConf.isBlank()) R.string.smart_route_default_conf_missing else R.string.smart_route_default_conf_ready)
+        bypassConfStatus.setText(if (bypassConf.isBlank()) R.string.smart_route_bypass_conf_missing else R.string.smart_route_bypass_conf_ready)
+
+        setupSection.visibility = if (setupExpanded || !hasCompleteConf()) View.VISIBLE else View.GONE
+        domainToolsSection.visibility = if (domainToolsExpanded) View.VISIBLE else View.GONE
+        jsonToolsSection.visibility = if (jsonToolsExpanded) View.VISIBLE else View.GONE
+        defaultConfActions.visibility = if (setupExpanded || defaultConf.isBlank()) View.VISIBLE else View.GONE
+        bypassConfActions.visibility = if (setupExpanded || bypassConf.isBlank()) View.VISIBLE else View.GONE
+
+        toggleSetup.setText(if (setupSection.visibility == View.VISIBLE) R.string.smart_route_hide_setup else R.string.smart_route_show_setup)
+        toggleDomainTools.setText(if (domainToolsExpanded) R.string.smart_route_hide_domain_tools else R.string.smart_route_show_domain_tools)
+        toggleJsonTools.setText(if (jsonToolsExpanded) R.string.smart_route_hide_json_tools else R.string.smart_route_show_json_tools)
+    }
+
+    private fun hasCompleteConf() = defaultConf.isNotBlank() && bypassConf.isNotBlank()
+
+    private fun smartRoutePrefs() = requireContext().getSharedPreferences("smart_route_profiles", android.content.Context.MODE_PRIVATE)
 
     private fun editDomainsAdvanced() {
         editTextDialog(R.string.smart_route_advanced_domain_edit, domainItems.joinToString("\n")) {
             try {
-                setDomains(SmartRouteDomainNormalizer.normalizeLines(it))
+                setDomains(SmartRouteDomainNormalizer.normalizeLines(it), resetSelection = true)
                 generatedJson = ""
             } catch (e: SmartRouteInputException) {
                 showError(formatInputError(e))
@@ -356,13 +515,13 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
     }
 
     private fun editTextDialog(titleRes: Int, value: String, onSave: (String) -> Unit) {
-        val edit = EditText(this).apply {
+        val edit = EditText(requireContext()).apply {
             setText(value)
             minLines = 10
             maxLines = 20
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         }
-        MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle(titleRes)
             .setView(edit)
             .setPositiveButton(android.R.string.ok) { _, _ -> onSave(edit.text.toString()) }
@@ -371,7 +530,7 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
     }
 
     private fun showInfo(title: String, message: String) {
-        MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle(title)
             .setMessage(message)
             .setPositiveButton(android.R.string.ok, null)
@@ -379,7 +538,7 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
     }
 
     private fun showError(message: String) {
-        MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.error_title)
             .setMessage(message)
             .setPositiveButton(android.R.string.ok, null)
@@ -390,6 +549,10 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
         snackbar(resId).show()
     }
 
+    private fun showMessage(message: String) {
+        snackbar(message).show()
+    }
+
     private fun formatInputError(error: SmartRouteInputException): String {
         val base = getString(error.stringRes)
         return error.detail?.let { "$base\n$it" } ?: base
@@ -397,10 +560,9 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
 
     private fun readText(uri: Uri): String? {
         return runCatching {
-            contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+            requireContext().contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
         }.onFailure {
             showError(getString(R.string.action_import_err))
         }.getOrNull()
     }
-
 }

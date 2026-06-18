@@ -619,8 +619,12 @@
     <string name="smart_route_default_profile_name">Smart Route</string>
     <string name="smart_route_default_conf">Default route conf</string>
     <string name="smart_route_default_conf_summary">WireGuard conf used for normal traffic. Usually WARP.</string>
+    <string name="smart_route_default_conf_missing">Default route conf is not set.</string>
+    <string name="smart_route_default_conf_ready">Default route conf is set.</string>
     <string name="smart_route_bypass_conf">Bypass route conf</string>
     <string name="smart_route_bypass_conf_summary">WireGuard conf used only for selected domains. Usually Proton.</string>
+    <string name="smart_route_bypass_conf_missing">Bypass route conf is not set.</string>
+    <string name="smart_route_bypass_conf_ready">Bypass route conf is set.</string>
     <string name="smart_route_load_from_file">Load from file</string>
     <string name="smart_route_paste_from_clipboard">Paste from clipboard</string>
     <string name="smart_route_view_edit_content">View/Edit content</string>
@@ -629,11 +633,19 @@
     <string name="smart_route_domain_list_summary">Only domains in this list use the bypass route. Everything else uses the default route.</string>
     <string name="smart_route_domain_help">domain:example.com = example.com and all subdomains\nfull:example.com = example.com only\nkeyword:example = domains containing example\ngeosite:google = geosite data rule</string>
     <string name="smart_route_domain_input_hint">Domain or URL</string>
+    <string name="smart_route_search_domains">Search domains</string>
     <string name="smart_route_add_domain">Add domain</string>
     <string name="smart_route_domains_added">Added %d domains.</string>
     <string name="smart_route_checked_domains">Checked domains</string>
     <string name="smart_route_checked_domains_count">Domains (%d)</string>
+    <string name="smart_route_domains_count_selected">Domains %1$d, selected %2$d</string>
+    <string name="smart_route_domains_filtered_count">Showing %1$d of %2$d, selected %3$d</string>
+    <string name="smart_route_no_domains">No domains.</string>
+    <string name="smart_route_select_visible">Select shown</string>
+    <string name="smart_route_clear_selection">Clear selection</string>
     <string name="smart_route_remove_checked_domains">Remove checked domains</string>
+    <string name="smart_route_no_selected_domains">No selected domains.</string>
+    <string name="smart_route_edit_domain">Edit domain</string>
     <string name="smart_route_advanced_domain_edit">Advanced domain edit</string>
     <string name="smart_route_import_txt">Import from txt file</string>
     <string name="smart_route_export_txt">Export to txt file</string>
@@ -643,6 +655,14 @@
     <string name="smart_route_preview_json">Preview generated JSON</string>
     <string name="smart_route_copy_json">Copy JSON</string>
     <string name="smart_route_save_profile">Save / apply Smart Route</string>
+    <string name="smart_route_show_setup">Show route conf settings</string>
+    <string name="smart_route_hide_setup">Hide route conf settings</string>
+    <string name="smart_route_show_domain_tools">Show domain tools</string>
+    <string name="smart_route_hide_domain_tools">Hide domain tools</string>
+    <string name="smart_route_show_json_tools">Show JSON tools</string>
+    <string name="smart_route_hide_json_tools">Hide JSON tools</string>
+    <string name="smart_route_not_configured">Add both WireGuard conf files, then manage domains.</string>
+    <string name="smart_route_configured_summary">Smart Route is configured. Manage domains here; route conf settings stay hidden unless you open them.</string>
     <string name="smart_route_validate">Validate config</string>
     <string name="smart_route_validation_ok">Config is valid.</string>
     <string name="smart_route_json_copied">JSON copied.</string>
