@@ -154,20 +154,24 @@
                 android:layout_height="wrap_content"
                 android:text="@string/smart_route_add_domain" />
 
-            <com.google.android.material.textfield.TextInputLayout
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:hint="@string/smart_route_domain_list">
+                android:text="@string/smart_route_checked_domains"
+                android:textAppearance="?attr/textAppearanceSubtitle1" />
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/domain_list"
-                    android:layout_width="match_parent"
-                    android:layout_height="180dp"
-                    android:gravity="top|start"
-                    android:inputType="textMultiLine|textNoSuggestions"
-                    android:singleLine="false" />
-            </com.google.android.material.textfield.TextInputLayout>
+            <ListView
+                android:id="@+id/domain_checked_list"
+                android:layout_width="match_parent"
+                android:layout_height="220dp"
+                android:choiceMode="multipleChoice" />
+
+            <Button
+                android:id="@+id/domains_remove_checked"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/smart_route_remove_checked_domains" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -175,6 +179,12 @@
                 android:layout_marginTop="8dp"
                 android:text="@string/smart_route_domain_help"
                 android:textAppearance="?attr/textAppearanceCaption" />
+
+            <Button
+                android:id="@+id/domains_advanced_edit"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/smart_route_advanced_domain_edit" />
 
             <Button
                 android:id="@+id/domains_from_file"

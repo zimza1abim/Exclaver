@@ -15,8 +15,10 @@ import android.net.Uri
 import android.os.Bundle
 import android.text.InputType
 import android.view.MenuItem
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ListView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.Toolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -48,10 +50,13 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
     private var defaultConf = ""
     private var bypassConf = ""
     private var generatedJson = ""
+    private var managedProfileId = 0L
+    private val domainItems = ArrayList<String>()
 
     private lateinit var profileName: TextInputEditText
     private lateinit var domainInput: TextInputEditText
-    private lateinit var domains: TextInputEditText
+    private lateinit var domainListView: ListView
+    private lateinit var domainAdapter: ArrayAdapter<String>
 
     private val importFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri ?: return@registerForActivityResult
@@ -66,8 +71,11 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
                 showMessage(R.string.smart_route_bypass_loaded)
             }
             ImportTarget.Domains -> {
-                domains.setText(text)
-                normalizeDomains(sort = false)
+                try {
+                    setDomains(SmartRouteDomainNormalizer.normalizeLines(text))
+                } catch (e: SmartRouteInputException) {
+                    showError(formatInputError(e))
+                }
             }
         }
         generatedJson = ""
@@ -78,7 +86,7 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
         runCatching {
             contentResolver.openOutputStream(uri)?.use { stream ->
                 OutputStreamWriter(stream).use { writer ->
-                    writer.write(domains.text?.toString().orEmpty())
+                    writer.write(domainItems.joinToString("\n"))
                 }
             }
         }.onFailure {
@@ -99,8 +107,12 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
 
         profileName = findViewById(R.id.profile_name)
         domainInput = findViewById(R.id.domain_input)
-        domains = findViewById(R.id.domain_list)
+        domainListView = findViewById(R.id.domain_checked_list)
+        domainAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_multiple_choice, ArrayList<String>())
+        domainListView.adapter = domainAdapter
+        domainListView.choiceMode = ListView.CHOICE_MODE_MULTIPLE
         profileName.setText(getString(R.string.smart_route_default_profile_name))
+        loadManagedSmartRoute()
 
         findViewById<Button>(R.id.default_from_file).setOnClickListener {
             importTarget = ImportTarget.DefaultConf
@@ -143,10 +155,12 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
             showMessage(R.string.smart_route_cleared)
         }
         findViewById<Button>(R.id.domain_add).setOnClickListener { addDomainsFromInput() }
+        findViewById<Button>(R.id.domains_remove_checked).setOnClickListener { removeCheckedDomains() }
+        findViewById<Button>(R.id.domains_advanced_edit).setOnClickListener { editDomainsAdvanced() }
         findViewById<Button>(R.id.domains_normalize).setOnClickListener { normalizeDomains(sort = false) }
         findViewById<Button>(R.id.domains_sort).setOnClickListener { normalizeDomains(sort = true) }
         findViewById<Button>(R.id.domains_clear).setOnClickListener {
-            domains.setText("")
+            setDomains(emptyList())
             generatedJson = ""
         }
         findViewById<Button>(R.id.validate_config).setOnClickListener {
@@ -204,9 +218,9 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
     private fun normalizeDomains(sort: Boolean) {
         try {
             val normalized = SmartRouteDomainNormalizer.normalizeLines(
-                domains.text?.toString().orEmpty(),
+                domainItems.joinToString("\n"),
             ).let { if (sort) it.sorted() else it }
-            domains.setText(normalized.joinToString("\n"))
+            setDomains(normalized)
             generatedJson = ""
         } catch (e: SmartRouteInputException) {
             showError(formatInputError(e))
@@ -215,12 +229,12 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
 
     private fun addDomainsFromInput() {
         try {
-            val current = SmartRouteDomainNormalizer.normalizeLines(domains.text?.toString().orEmpty())
+            val current = SmartRouteDomainNormalizer.normalizeLines(domainItems.joinToString("\n"))
             val incoming = SmartRouteDomainNormalizer.normalizeLines(domainInput.text?.toString().orEmpty())
             if (incoming.isEmpty()) throw SmartRouteInputException(R.string.smart_route_error_domain_empty)
             val merged = (current + incoming).distinct()
             val added = merged.size - current.size
-            domains.setText(merged.joinToString("\n"))
+            setDomains(merged)
             domainInput.setText("")
             generatedJson = ""
             showInfo(getString(R.string.smart_route_add_domain), getString(R.string.smart_route_domains_added, added))
@@ -229,14 +243,33 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
         }
     }
 
+    private fun removeCheckedDomains() {
+        val checked = domainListView.checkedItemPositions
+        val remaining = (0 until domainAdapter.count)
+            .filterNot { checked.get(it) }
+            .map { domainAdapter.getItem(it).orEmpty() }
+            .filter { it.isNotEmpty() }
+        setDomains(remaining)
+        generatedJson = ""
+    }
+
+    private fun setDomains(values: List<String>) {
+        domainItems.clear()
+        domainItems.addAll(values)
+        domainAdapter.clear()
+        domainAdapter.addAll(values)
+        domainAdapter.notifyDataSetChanged()
+        domainListView.clearChoices()
+    }
+
     private fun generateOrShow(updateDomainText: Boolean) = try {
         val result = SmartRouteConfigGenerator.generate(
             defaultConf = defaultConf,
             bypassConf = bypassConf,
-            domainText = domains.text?.toString().orEmpty(),
+            domainText = domainItems.joinToString("\n"),
         )
         generatedJson = result.json
-        if (updateDomainText) domains.setText(result.domains.joinToString("\n"))
+        if (updateDomainText) setDomains(result.domains)
         result
     } catch (e: SmartRouteInputException) {
         showError(formatInputError(e))
@@ -254,13 +287,23 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
         runOnDefaultDispatcher {
             val groupId = DataStore.selectedGroupForImport()
             if (DataStore.selectedGroup != groupId) DataStore.selectedGroup = groupId
-            val profile = ProfileManager.createProfile(groupId, ConfigBean().apply {
+            val bean = ConfigBean().apply {
                 this.name = name
                 type = "v2ray"
                 content = result.json
                 serverAddresses = ""
-            })
-            getSharedPreferences("smart_route_profiles", MODE_PRIVATE).edit()
+            }
+            val profile = ProfileManager.getProfile(managedProfileId)?.apply {
+                groupId = this.groupId.takeIf { it > 0L } ?: groupId
+                putBean(bean)
+            }?.also {
+                ProfileManager.updateProfile(it)
+            } ?: ProfileManager.createProfile(groupId, bean)
+            managedProfileId = profile.id
+            DataStore.selectedProxy = profile.id
+            DataStore.selectedGroup = profile.groupId
+            smartRoutePrefs().edit()
+                .putLong("manager.profileId", profile.id)
                 .putString("${profile.id}.name", name)
                 .putString("${profile.id}.defaultConf", defaultConf)
                 .putString("${profile.id}.bypassConf", bypassConf)
@@ -271,6 +314,39 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
                 showMessage(R.string.smart_route_saved)
                 setResult(RESULT_OK)
                 finish()
+            }
+        }
+    }
+
+    private fun loadManagedSmartRoute() {
+        val prefs = smartRoutePrefs()
+        managedProfileId = prefs.getLong("manager.profileId", 0L)
+        if (managedProfileId <= 0L || ProfileManager.getProfile(managedProfileId) == null) {
+            managedProfileId = prefs.all.keys
+                .mapNotNull { key -> key.substringBefore(".json").toLongOrNull() }
+                .firstOrNull { ProfileManager.getProfile(it) != null }
+                ?: 0L
+        }
+        if (managedProfileId <= 0L) return
+        prefs.getString("${managedProfileId}.name", null)?.let { profileName.setText(it) }
+        defaultConf = prefs.getString("${managedProfileId}.defaultConf", "").orEmpty()
+        bypassConf = prefs.getString("${managedProfileId}.bypassConf", "").orEmpty()
+        generatedJson = prefs.getString("${managedProfileId}.json", "").orEmpty()
+        val savedDomains = prefs.getString("${managedProfileId}.domains", "").orEmpty()
+        if (savedDomains.isNotBlank()) {
+            setDomains(SmartRouteDomainNormalizer.normalizeLines(savedDomains))
+        }
+    }
+
+    private fun smartRoutePrefs() = getSharedPreferences("smart_route_profiles", MODE_PRIVATE)
+
+    private fun editDomainsAdvanced() {
+        editTextDialog(R.string.smart_route_advanced_domain_edit, domainItems.joinToString("\n")) {
+            try {
+                setDomains(SmartRouteDomainNormalizer.normalizeLines(it))
+                generatedJson = ""
+            } catch (e: SmartRouteInputException) {
+                showError(formatInputError(e))
             }
         }
     }
@@ -323,12 +399,4 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
         }.getOrNull()
     }
 
-    private fun sampleValidConf() = """
-        [Interface]
-        PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-        Address = 10.0.0.2/32
-        [Peer]
-        PublicKey = BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=
-        Endpoint = example.com:51820
-    """.trimIndent()
 }

@@ -631,6 +631,9 @@
     <string name="smart_route_domain_input_hint">Domain or URL</string>
     <string name="smart_route_add_domain">Add domain</string>
     <string name="smart_route_domains_added">Added %d domains.</string>
+    <string name="smart_route_checked_domains">Checked domains</string>
+    <string name="smart_route_remove_checked_domains">Remove checked domains</string>
+    <string name="smart_route_advanced_domain_edit">Advanced domain edit</string>
     <string name="smart_route_import_txt">Import from txt file</string>
     <string name="smart_route_export_txt">Export to txt file</string>
     <string name="smart_route_dedupe">Normalize / remove duplicates</string>
@@ -638,11 +641,11 @@
     <string name="smart_route_clear_all">Clear all</string>
     <string name="smart_route_preview_json">Preview generated JSON</string>
     <string name="smart_route_copy_json">Copy JSON</string>
-    <string name="smart_route_save_profile">Save as custom profile</string>
+    <string name="smart_route_save_profile">Save / apply Smart Route</string>
     <string name="smart_route_validate">Validate config</string>
     <string name="smart_route_validation_ok">Config is valid.</string>
     <string name="smart_route_json_copied">JSON copied.</string>
-    <string name="smart_route_saved">Smart Route profile saved.</string>
+    <string name="smart_route_saved">Smart Route saved and selected.</string>
     <string name="smart_route_default_loaded">Default route conf loaded.</string>
     <string name="smart_route_bypass_loaded">Bypass route conf loaded.</string>
     <string name="smart_route_cleared">Cleared.</string>

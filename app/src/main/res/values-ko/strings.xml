@@ -138,6 +138,9 @@
     <string name="smart_route_domain_input_hint">도메인 또는 URL</string>
     <string name="smart_route_add_domain">도메인 추가</string>
     <string name="smart_route_domains_added">도메인 %d개를 추가했습니다.</string>
+    <string name="smart_route_checked_domains">체크한 도메인</string>
+    <string name="smart_route_remove_checked_domains">체크한 도메인 제외</string>
+    <string name="smart_route_advanced_domain_edit">고급 도메인 편집</string>
     <string name="smart_route_import_txt">txt 파일에서 가져오기</string>
     <string name="smart_route_export_txt">txt 파일로 내보내기</string>
     <string name="smart_route_dedupe">중복 제거/정규화</string>
@@ -145,11 +148,11 @@
     <string name="smart_route_clear_all">전체 지우기</string>
     <string name="smart_route_preview_json">생성된 JSON 미리보기</string>
     <string name="smart_route_copy_json">JSON 복사</string>
-    <string name="smart_route_save_profile">커스텀 프로필로 저장</string>
+    <string name="smart_route_save_profile">스마트 라우트 저장/적용</string>
     <string name="smart_route_validate">설정 검증</string>
     <string name="smart_route_validation_ok">설정이 올바릅니다.</string>
     <string name="smart_route_json_copied">JSON을 복사했습니다.</string>
-    <string name="smart_route_saved">스마트 라우트 프로필을 저장했습니다.</string>
+    <string name="smart_route_saved">스마트 라우트를 저장하고 선택했습니다.</string>
     <string name="smart_route_default_loaded">기본 경로 conf를 불러왔습니다.</string>
     <string name="smart_route_bypass_loaded">우회 경로 conf를 불러왔습니다.</string>
     <string name="smart_route_cleared">지웠습니다.</string>
