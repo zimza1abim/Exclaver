@@ -112,6 +112,8 @@
     <string name="route_proxy">프록시</string>
     <string name="route_bypass">바이패스</string>
     <string name="route_block">차단</string>
+    <string name="route_reverse">리버스 프록시</string>
+    <string name="route_reverse_redirect">리버스 프록시 주소</string>
     <string name="route_profile">프로필 선택…</string>
     <string name="empty_route">빈 경로</string>
     <string name="empty_route_notice">저장하기 전에 몇 가지 규칙을 구성하세요.</string>
@@ -216,6 +218,7 @@
     <string name="action_vmess" translatable="false">VMess</string>
     <string name="action_vless" translatable="false">VLESS</string>
     <string name="action_trojan" translatable="false">Trojan</string>
+    <string name="action_shadowtls" translatable="false">ShadowTLS</string>
     <string name="action_naive" translatable="false">NaïveProxy</string>
     <string name="action_hysteria2" translatable="false">Hysteria 2</string>
     <string name="action_ssh" translatable="false">SSH</string>
