@@ -32,6 +32,7 @@ import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.startFilesForResult
 import io.nekohasekai.sagernet.ui.ThemedActivity
 import io.nekohasekai.sagernet.ui.profile.smartroute.SmartRouteConfigGenerator
+import io.nekohasekai.sagernet.ui.profile.smartroute.SmartRouteDomainNormalizer
 import io.nekohasekai.sagernet.ui.profile.smartroute.SmartRouteInputException
 import java.io.OutputStreamWriter
 
@@ -49,6 +50,7 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
     private var generatedJson = ""
 
     private lateinit var profileName: TextInputEditText
+    private lateinit var domainInput: TextInputEditText
     private lateinit var domains: TextInputEditText
 
     private val importFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -96,6 +98,7 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
         }
 
         profileName = findViewById(R.id.profile_name)
+        domainInput = findViewById(R.id.domain_input)
         domains = findViewById(R.id.domain_list)
         profileName.setText(getString(R.string.smart_route_default_profile_name))
 
@@ -139,6 +142,7 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
             generatedJson = ""
             showMessage(R.string.smart_route_cleared)
         }
+        findViewById<Button>(R.id.domain_add).setOnClickListener { addDomainsFromInput() }
         findViewById<Button>(R.id.domains_normalize).setOnClickListener { normalizeDomains(sort = false) }
         findViewById<Button>(R.id.domains_sort).setOnClickListener { normalizeDomains(sort = true) }
         findViewById<Button>(R.id.domains_clear).setOnClickListener {
@@ -199,13 +203,27 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
 
     private fun normalizeDomains(sort: Boolean) {
         try {
-            val normalized = SmartRouteConfigGenerator.generate(
-                defaultConf = sampleValidConf(),
-                bypassConf = sampleValidConf(),
-                domainText = domains.text?.toString().orEmpty(),
-            ).domains.let { if (sort) it.sorted() else it }
+            val normalized = SmartRouteDomainNormalizer.normalizeLines(
+                domains.text?.toString().orEmpty(),
+            ).let { if (sort) it.sorted() else it }
             domains.setText(normalized.joinToString("\n"))
             generatedJson = ""
+        } catch (e: SmartRouteInputException) {
+            showError(formatInputError(e))
+        }
+    }
+
+    private fun addDomainsFromInput() {
+        try {
+            val current = SmartRouteDomainNormalizer.normalizeLines(domains.text?.toString().orEmpty())
+            val incoming = SmartRouteDomainNormalizer.normalizeLines(domainInput.text?.toString().orEmpty())
+            if (incoming.isEmpty()) throw SmartRouteInputException(R.string.smart_route_error_domain_empty)
+            val merged = (current + incoming).distinct()
+            val added = merged.size - current.size
+            domains.setText(merged.joinToString("\n"))
+            domainInput.setText("")
+            generatedJson = ""
+            showInfo(getString(R.string.smart_route_add_domain), getString(R.string.smart_route_domains_added, added))
         } catch (e: SmartRouteInputException) {
             showError(formatInputError(e))
         }

@@ -138,6 +138,26 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
+                android:hint="@string/smart_route_domain_input_hint">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/domain_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textMultiLine|textNoSuggestions"
+                    android:singleLine="false" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <Button
+                android:id="@+id/domain_add"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/smart_route_add_domain" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
                 android:hint="@string/smart_route_domain_list">
 
                 <com.google.android.material.textfield.TextInputEditText

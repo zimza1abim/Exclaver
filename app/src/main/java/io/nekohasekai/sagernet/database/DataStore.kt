@@ -131,7 +131,7 @@ object DataStore : OnPreferenceDataStoreChangeListener {
 
     var appTheme by configurationStore.int(Key.APP_THEME)
     var nightTheme by configurationStore.stringToInt(Key.NIGHT_THEME)
-    var serviceMode by configurationStore.string(Key.SERVICE_MODE) { Key.MODE_VPN }
+    var serviceMode by configurationStore.string(Key.SERVICE_MODE) { Key.MODE_PROXY }
 
     var domainStrategy by configurationStore.string(Key.DOMAIN_STRATEGY) { "AsIs" }
     var trafficSniffing by configurationStore.boolean(Key.TRAFFIC_SNIFFING) { true }
@@ -257,7 +257,7 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var socksPassword by configurationStore.string(Key.SOCKS_PASSWORD)
     var socksUDP by configurationStore.boolean(Key.SOCKS_UDP) { true }
     var socksUDPWarningDisable by configurationStore.boolean(Key.SOCKS_UDP_WARNING_DISABLE)
-    var requireHttp by configurationStore.boolean(Key.REQUIRE_HTTP) { false }
+    var requireHttp by configurationStore.boolean(Key.REQUIRE_HTTP) { true }
     var httpUsername by configurationStore.string(Key.HTTP_USERNAME)
     var httpPassword by configurationStore.string(Key.HTTP_PASSWORD)
     var appendHttpProxy by configurationStore.boolean(Key.APPEND_HTTP_PROXY) { true }

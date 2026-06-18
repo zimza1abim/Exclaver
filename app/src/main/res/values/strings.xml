@@ -628,6 +628,9 @@
     <string name="smart_route_domain_list">Domains to send to Proton</string>
     <string name="smart_route_domain_list_summary">Only domains in this list use the bypass route. Everything else uses the default route.</string>
     <string name="smart_route_domain_help">domain:example.com = example.com and all subdomains\nfull:example.com = example.com only\nkeyword:example = domains containing example\ngeosite:google = geosite data rule</string>
+    <string name="smart_route_domain_input_hint">Domain or URL</string>
+    <string name="smart_route_add_domain">Add domain</string>
+    <string name="smart_route_domains_added">Added %d domains.</string>
     <string name="smart_route_import_txt">Import from txt file</string>
     <string name="smart_route_export_txt">Export to txt file</string>
     <string name="smart_route_dedupe">Normalize / remove duplicates</string>

@@ -135,6 +135,9 @@
     <string name="smart_route_domain_list">Proton으로 보낼 도메인</string>
     <string name="smart_route_domain_list_summary">이 목록에 있는 도메인만 우회 경로로 보냅니다. 나머지는 기본 경로를 사용합니다.</string>
     <string name="smart_route_domain_help">domain:example.com = example.com과 하위 도메인 전체\nfull:example.com = example.com 하나만\nkeyword:example = 도메인에 example이 들어가면 적용\ngeosite:google = geosite 데이터 기준</string>
+    <string name="smart_route_domain_input_hint">도메인 또는 URL</string>
+    <string name="smart_route_add_domain">도메인 추가</string>
+    <string name="smart_route_domains_added">도메인 %d개를 추가했습니다.</string>
     <string name="smart_route_import_txt">txt 파일에서 가져오기</string>
     <string name="smart_route_export_txt">txt 파일로 내보내기</string>
     <string name="smart_route_dedupe">중복 제거/정규화</string>
