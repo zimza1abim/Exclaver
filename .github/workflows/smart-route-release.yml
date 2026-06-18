@@ -107,9 +107,9 @@ jobs:
           if-no-files-found: error
 
       - name: Create GitHub Release
-        if: ${{ inputs.tag != '' }}
+        if: ${{ inputs.tag != '' && env.HAS_SIGNING == 'true' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag }}
           name: Exclaver ${{ inputs.tag }}
-          files: app/build/outputs/apk/**/*.apk
+          files: app/build/outputs/apk/oss/release/*.apk
