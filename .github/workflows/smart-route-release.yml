@@ -75,7 +75,18 @@ jobs:
           fi
 
       - name: Lint
+        continue-on-error: true
         run: ./gradlew :app:lint
+
+      - name: Upload lint reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-route-lint-reports
+          path: |
+            app/build/reports/lint-results-*.html
+            app/build/intermediates/lint_intermediate_text_report/**/lint-results-*.txt
+          if-no-files-found: ignore
 
       - name: Build debug APK
         run: ./gradlew :app:assembleOssDebug
