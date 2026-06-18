@@ -294,7 +294,6 @@ class SmartRouteSettingsActivity : ThemedActivity(R.layout.layout_smart_route_se
                 serverAddresses = ""
             }
             val profile = ProfileManager.getProfile(managedProfileId)?.apply {
-                groupId = this.groupId.takeIf { it > 0L } ?: groupId
                 putBean(bean)
             }?.also {
                 ProfileManager.updateProfile(it)
