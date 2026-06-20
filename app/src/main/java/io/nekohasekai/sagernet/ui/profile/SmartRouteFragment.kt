@@ -462,7 +462,12 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
                 .apply()
             onMainDispatcher {
                 setupExpanded = false
-                showMessage(R.string.smart_route_saved)
+                if (SagerNet.started) {
+                    SagerNet.reloadService()
+                    showMessage(R.string.smart_route_saved_reloaded)
+                } else {
+                    showMessage(R.string.smart_route_saved)
+                }
                 applyResponsiveState()
             }
         }

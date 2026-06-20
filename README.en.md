@@ -50,6 +50,8 @@ Selected domains -> Proton conf
 7. Tap `Save / apply Smart Route`.
 8. The generated Smart Route profile is selected and used when the app runs.
 
+If the proxy service is already running, Exclaver reloads it after saving so the changes apply immediately.
+
 After Smart Route is configured, the domain manager is shown first. The route conf settings stay collapsed until you open them.
 
 ## Proxy Port Sync

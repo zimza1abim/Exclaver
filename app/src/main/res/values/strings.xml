@@ -673,6 +673,7 @@
     <string name="smart_route_validation_ok">Config is valid.</string>
     <string name="smart_route_json_copied">JSON copied.</string>
     <string name="smart_route_saved">Smart Route saved and selected.</string>
+    <string name="smart_route_saved_reloaded">Smart Route saved and proxy service reloaded.</string>
     <string name="smart_route_default_loaded">Default route conf loaded.</string>
     <string name="smart_route_bypass_loaded">Bypass route conf loaded.</string>
     <string name="smart_route_cleared">Cleared.</string>
