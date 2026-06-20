@@ -663,6 +663,12 @@
     <string name="smart_route_hide_json_tools">Hide JSON tools</string>
     <string name="smart_route_not_configured">Add both WireGuard conf files, then manage domains.</string>
     <string name="smart_route_configured_summary">Smart Route is configured. Manage domains here; route conf settings stay hidden unless you open them.</string>
+    <string name="smart_route_proxy_status">Proxy ports are synced with app settings.\n%1$s\n%2$s</string>
+    <string name="smart_route_proxy_socks_enabled">SOCKS: %1$s:%2$d</string>
+    <string name="smart_route_proxy_socks_disabled">SOCKS: disabled</string>
+    <string name="smart_route_proxy_http_enabled">HTTP: %1$s:%2$d</string>
+    <string name="smart_route_proxy_http_disabled">HTTP: disabled</string>
+    <string name="smart_route_open_proxy_settings">Open proxy settings</string>
     <string name="smart_route_validate">Validate config</string>
     <string name="smart_route_validation_ok">Config is valid.</string>
     <string name="smart_route_json_copied">JSON copied.</string>

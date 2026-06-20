@@ -52,6 +52,18 @@ Selected domains -> Proton conf
 
 After Smart Route is configured, the domain manager is shown first. The route conf settings stay collapsed until you open them.
 
+## Proxy Port Sync
+
+Smart Route does not store separate proxy ports. It uses the normal SOCKS/HTTP inbound settings from the app settings.
+
+- SOCKS port: `Settings > SOCKS5 proxy port`
+- HTTP port: `Settings > HTTP proxy port`
+- SOCKS/HTTP enabled state also follows app settings.
+- If you change proxy ports in settings, Smart Route uses the current ports when it runs.
+- The Smart Route screen shows the currently active SOCKS/HTTP addresses.
+
+For example, if the HTTP proxy port is `2081`, use `127.0.0.1:2081` in apps such as AdGuard. If `Allow access from LAN` is enabled, the screen shows `0.0.0.0:port`.
+
 ## Domain Management
 
 Supported input examples:

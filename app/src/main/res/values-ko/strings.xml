@@ -170,6 +170,12 @@
     <string name="smart_route_hide_json_tools">JSON 도구 숨기기</string>
     <string name="smart_route_not_configured">WireGuard conf 2개를 넣은 뒤 도메인을 관리하세요.</string>
     <string name="smart_route_configured_summary">스마트 라우트가 설정되었습니다. 여기서 도메인을 관리하고, 경로 conf는 필요할 때만 열어 수정합니다.</string>
+    <string name="smart_route_proxy_status">프록시 포트는 앱 설정과 자동 동기화됩니다.\n%1$s\n%2$s</string>
+    <string name="smart_route_proxy_socks_enabled">SOCKS: %1$s:%2$d</string>
+    <string name="smart_route_proxy_socks_disabled">SOCKS: 꺼짐</string>
+    <string name="smart_route_proxy_http_enabled">HTTP: %1$s:%2$d</string>
+    <string name="smart_route_proxy_http_disabled">HTTP: 꺼짐</string>
+    <string name="smart_route_open_proxy_settings">프록시 설정 열기</string>
     <string name="smart_route_validate">설정 검증</string>
     <string name="smart_route_validation_ok">설정이 올바릅니다.</string>
     <string name="smart_route_json_copied">JSON을 복사했습니다.</string>

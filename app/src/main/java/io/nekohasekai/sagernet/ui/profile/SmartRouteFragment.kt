@@ -35,6 +35,7 @@ import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.snackbar
 import io.nekohasekai.sagernet.ktx.startFilesForResult
+import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.ToolbarFragment
 import io.nekohasekai.sagernet.ui.profile.smartroute.SmartRouteConfigGenerator
 import io.nekohasekai.sagernet.ui.profile.smartroute.SmartRouteDomainNormalizer
@@ -68,6 +69,7 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
     private lateinit var domainEmpty: TextView
     private lateinit var domainListView: LinearLayout
     private lateinit var status: TextView
+    private lateinit var proxyStatus: TextView
     private lateinit var defaultConfStatus: TextView
     private lateinit var bypassConfStatus: TextView
     private lateinit var setupSection: View
@@ -142,6 +144,7 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         domainEmpty = view.findViewById(R.id.domain_empty)
         domainListView = view.findViewById(R.id.domain_checked_list)
         status = view.findViewById(R.id.smart_route_status)
+        proxyStatus = view.findViewById(R.id.smart_route_proxy_status)
         defaultConfStatus = view.findViewById(R.id.default_conf_status)
         bypassConfStatus = view.findViewById(R.id.bypass_conf_status)
         setupSection = view.findViewById(R.id.setup_section)
@@ -239,6 +242,9 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
             showMessage(R.string.smart_route_json_copied)
         }
         requireView().findViewById<Button>(R.id.save_profile).setOnClickListener { saveProfile() }
+        requireView().findViewById<Button>(R.id.open_proxy_settings).setOnClickListener {
+            (requireActivity() as MainActivity).displayFragmentWithId(R.id.nav_settings)
+        }
 
         toggleSetup.setOnClickListener {
             setupExpanded = !setupExpanded
@@ -485,6 +491,7 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
     private fun applyResponsiveState() {
         val configured = hasCompleteConf() && managedProfileId > 0L && ProfileManager.getProfile(managedProfileId) != null
         status.setText(if (configured) R.string.smart_route_configured_summary else R.string.smart_route_not_configured)
+        proxyStatus.text = currentProxyStatus()
         defaultConfStatus.setText(if (defaultConf.isBlank()) R.string.smart_route_default_conf_missing else R.string.smart_route_default_conf_ready)
         bypassConfStatus.setText(if (bypassConf.isBlank()) R.string.smart_route_bypass_conf_missing else R.string.smart_route_bypass_conf_ready)
 
@@ -500,6 +507,21 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
     }
 
     private fun hasCompleteConf() = defaultConf.isNotBlank() && bypassConf.isNotBlank()
+
+    private fun currentProxyStatus(): String {
+        val listen = if (DataStore.allowAccess) "0.0.0.0" else "127.0.0.1"
+        val socks = if (DataStore.requireSocks) {
+            getString(R.string.smart_route_proxy_socks_enabled, listen, DataStore.socksPort)
+        } else {
+            getString(R.string.smart_route_proxy_socks_disabled)
+        }
+        val http = if (DataStore.requireHttp) {
+            getString(R.string.smart_route_proxy_http_enabled, listen, DataStore.httpPort)
+        } else {
+            getString(R.string.smart_route_proxy_http_disabled)
+        }
+        return getString(R.string.smart_route_proxy_status, socks, http)
+    }
 
     private fun smartRoutePrefs() = requireContext().getSharedPreferences("smart_route_profiles", android.content.Context.MODE_PRIVATE)
 
