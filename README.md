@@ -1,134 +1,191 @@
-# Exclave
+# Exclaver
 
-Exclave is a proxy client.
+한국어 SmartRoute 사용을 위해 [Exclave](https://github.com/ExclaveNetwork/Exclave)를 기반으로 수정한 Android 프록시 앱입니다.
 
-<details>
+[English README](README.en.md)
 
-Features:
+## 주요 기능
 
-- Various proxy protocols
-- Group and subscription
-- Routing
-- Proxy chain
+- 앱 이름: `Exclaver`
+- 패키지 이름: `com.sampplekorea.exclaver`
+- 한국어 UI 기본 지원
+- Smart Route 관리 메뉴 제공
+- WireGuard `.conf` 2개로 커스텀 라우팅 JSON 자동 생성
+- GitHub Actions 기반 APK 빌드 및 릴리즈
+- release APK는 GitHub Secrets에 저장된 고정 키로 서명
 
-Some supported protocols:
+## 다운로드
 
-- Shadowsocks (with SIP003 plugin support)
-- Shadowsocks 2022 (with SIP003 plugin support)
-- Trojan
-- Hysteria 2
-- AnyTLS
-- mieru
-- NaïveProxy (as a standalone plugin)
-- TUIC
-- Juicity
-- VMess (with various optional sub-protocols)
-- VLESS (with various optional sub-protocols)
-- WireGuard (TCP and UDP only)
-- TrustTunnel (no ICMP echo support)
-- SSH proxy ("dynamic port forwarding")
-- HTTP CONNECT tunnel (HTTP/1.1, HTTP/1.1 with TLS, HTTP/2 and HTTP/3)
-- SOCKS4, SOCKS4A and SOCKS5
+최신 APK는 GitHub Releases에서 받을 수 있습니다.
 
-</details>
+https://github.com/sampple-korea/Exclaver/releases
 
-## Download
+일반적인 Android 기기는 `arm64-v8a` APK를 사용하면 됩니다.
 
-- Exclave
+## Smart Route란?
 
-  [Download from GitHub releases](https://github.com/ExclaveNetwork/Exclave/releases)
+Smart Route는 기본 경로와 우회 경로를 나누는 개인용 라우팅 기능입니다.
 
-  [Download from F-Droid](https://f-droid.org/packages/com.github.dyhkwong.sagernet)
+- 기본 경로 conf: 평상시 사용할 WireGuard conf입니다. 보통 WARP를 넣습니다.
+- 우회 경로 conf: 지정한 도메인에만 사용할 WireGuard conf입니다. 보통 Proton VPN을 넣습니다.
+- 도메인 리스트: 이 목록에 있는 도메인만 우회 경로로 보냅니다.
 
-  SHA-256 hash of the signing certificate: `e9fe39e1ce254c50c2f9470a757b378c0b7cc536119867f7691405b592e6994b`
+동작 예시:
 
-- NaïveProxy Plugin
-
-  [Download from GitHub releases](https://github.com/klzgrad/naiveproxy/releases)
-
-  It is distributed and signed by the upstream author.
-
-Starting in September 2026, Google will [block apps from "sideloading"](https://developer.android.com/developer-verification) on [certified Android devices](https://www.android.com/certified/partners/). If you are a user who values digital freedom, we need your voice to [express opposition](https://keepandroidopen.org/). Your support will not only help save this app, but also help defend software freedom and open distribution.
-
-## Explanation of terms
-
-[Exclave wiki](https://github.com/ExclaveNetwork/Exclave/wiki). It contains some subjective comments. Viewer discretion is advised.
-
-## Translation
-
-Is Exclave not in your language, or the translation is incorrect or incomplete? Get involved in the translations on [Hosted Weblate](https://hosted.weblate.org/projects/exclave/).
-
-## Issue tracker
-
-Please report bugs and submit feature requests [here](https://github.com/ExclaveNetwork/Exclave/issues).
-
-- Before creating a new issue, please search for existing ones. Do not create duplicate issues.
-- Old versions are not supported. Please ensure that you are using the latest version.
-- For crashes, log file using "debug" log level is required. The log file may contain the secret keys used to connect to your servers. Please remove potential sensitive information before posting them publicly.
-- For memory leak and high system resource usage, pprof profile is required. Long press "About" - "Version" to enable pprof HTTP server settings and kill and restart the app to take effect.
-- Encrypt with [this GPG public key](https://github.com/dyhkwong.gpg) if the issue contains sensitive information or you are reporting a vulnerability.
-- Because of the legacy codebase, feature requests are likely not accepted.
-
-## Discussion
-
-- Public [discussions](https://github.com/ExclaveNetwork/Exclave/discussions) are always preferred because they can be viewed by everyone.
-- Private [chat group](https://t.me/s/exclavian).
-
-## Code contribution
-
-- Create a [pull request](https://github.com/ExclaveNetwork/Exclave/pulls) to contribute code. New features needs prior communications in the issue tracker, while bug fixes does not.
-
-## License
-
-    Copyright (C) 2023  dyhkwong
-    Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-## Notice
-
-Exclave is licensed under the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. However, Exclave optionally incorporates code covered by the GNU General Public License as published by the Free Software Foundation, version 3. If `github.com/exclavenetwork/libexclavecore` is compiled with `with_clash` tag, the GNU General Public License as published by the Free Software Foundation, version 3, applies to all of Exclave.
-
-## Build from source
-
-- Install and configure JDK 21, Go 1.26 and Go Mobile.
-- Install and configure Android SDK Platform 37.0, Android SDK Build-Tools 37.0.0, Android SDK Platform-Tools and Android NDK r29 through Android Studio or Android SDK Command-line Tools.
-- Replace `release.keystore` with your own. It can be generated with Java `keytool`.
-- Create a new `local.properties` file if it does not exist. Append the following lines to `local.properties`.
-```
-    KEYSTORE_PASS=your_keystore_pass
-    ALIAS_NAME=your_alias_name
-    ALIAS_PASS=your_alias_pass
+```text
+기본 트래픽 -> WARP conf
+지정 도메인 -> Proton conf
 ```
 
-- Linux (x64) or macOS (x64/arm64):
+## Smart Route 사용법
 
-  - Build libexclavecore: `./run lib core` or `./library/core/build.sh`
-  - Download assets: `./gradlew :app:downloadAssets`, or update assets to the latest version: `./gradlew :app:updateAssets`
-  - Build Exclave: `./gradlew :app:assembleOssRelease`
+1. Exclaver APK를 설치합니다.
+2. 앱 왼쪽 메뉴를 엽니다.
+3. `스마트 라우트`를 선택합니다.
+4. 처음 설정할 때는 `경로 conf 설정 보기`에서 다음 값을 넣습니다.
+   - 기본 경로 conf
+   - 우회 경로 conf
+5. `도메인 또는 URL` 입력란에 우회할 도메인을 넣고 `도메인 추가`를 누릅니다.
+6. 필요한 경우 도메인을 검색하거나 체크해서 삭제합니다.
+7. `스마트 라우트 저장/적용`을 누릅니다.
+8. 저장된 Smart Route 프로필이 선택되고, 실행 시 라우팅이 적용됩니다.
 
-- Windows (x64):
+이미 설정된 상태에서는 도메인 관리가 먼저 보입니다. conf 설정은 필요할 때만 `경로 conf 설정 보기`를 눌러 열면 됩니다.
 
-  - Build libexclavecore: `./library/core/build.bat`
-  - Download assets: `./gradlew.bat :app:downloadAssets`, or update assets to the latest version: `./gradlew.bat :app:updateAssets`
-  - Build Exclave: `./gradlew.bat :app:assembleOssRelease`
+## 도메인 관리
 
-- APK files are located in `./app/build/outputs/apk/oss/release`
+지원하는 입력 예시:
 
-## Acknowledgment
+```text
+example.com
+domain:example.com
+full:example.com
+keyword:example
+regexp:...
+geosite:google
+https://example.com/path
+*.example.com
+```
 
-- [Shadowsocks](https://github.com/shadowsocks/shadowsocks-android)
+정규화 규칙:
+
+- `example.com` -> `domain:example.com`
+- `*.example.com` -> `domain:example.com`
+- `https://example.com/path` -> `domain:example.com`
+- `domain:example.com`, `full:example.com`, `keyword:example`, `regexp:...`, `geosite:google`은 그대로 사용
+- 빈 줄은 무시
+- 중복은 제거
+- 일반 ASCII 도메인은 소문자로 변환
+
+도메인 목록에서는 다음 작업을 할 수 있습니다.
+
+- 도메인 추가
+- 도메인 검색
+- 보이는 항목 전체 선택
+- 선택 해제
+- 체크한 도메인 제외
+- 도메인 길게 눌러 수정
+- txt 파일에서 가져오기
+- txt 파일로 내보내기
+- 중복 제거/정규화
+- 정렬
+- 전체 지우기
+
+## 라우팅 결과
+
+예시 설정:
+
+```text
+기본 경로 conf = WARP.conf
+우회 경로 conf = Proton.conf
+
+도메인 리스트:
+claude.ai
+anthropic.com
+reddit.com
+redd.it
+```
+
+결과:
+
+```text
+claude.ai, anthropic.com, reddit.com, redd.it -> Proton
+나머지 전체 트래픽 -> WARP
+```
+
+생성되는 커스텀 설정은 기존 Exclave custom config 프로필로 저장됩니다. 별도 프록시 코어를 만들지 않고, WireGuard outbound와 routing rule을 자동 생성합니다.
+
+## WireGuard conf 지원 항목
+
+`[Interface]`
+
+- `PrivateKey`
+- `Address`
+- `DNS`
+- `MTU`
+
+`[Peer]`
+
+- `PublicKey`
+- `PresharedKey` 또는 `PreSharedKey`
+- `AllowedIPs`
+- `Endpoint`
+- `PersistentKeepalive`
+- `Reserved` 또는 `reserved`
+
+`Reserved` 값은 WARP 호환을 위해 보존합니다.
+
+## 빌드
+
+이 저장소는 GitHub Actions로 APK를 빌드합니다.
+
+수동 실행:
+
+1. GitHub Actions로 이동합니다.
+2. `Smart Route APK` workflow를 실행합니다.
+3. tag 값을 넣으면 GitHub Release가 생성됩니다.
+
+사용하는 signing secrets:
+
+```text
+ANDROID_KEYSTORE_BASE64
+ANDROID_KEYSTORE_PASSWORD
+ANDROID_KEY_ALIAS
+ANDROID_KEY_PASSWORD
+```
+
+release APK는 secrets가 있을 때만 빌드됩니다. secrets가 없으면 debug APK만 artifact로 업로드되고 workflow 전체는 실패하지 않도록 구성되어 있습니다.
+
+## 개발 정보
+
+- JDK 21
+- Go 1.26.4
+- Go Mobile
+- Android NDK r29
+- Gradle wrapper
+- 기본 릴리즈 브랜치: `smart-route-ko`
+
+주요 빌드 작업:
+
+```bash
+./run lib core
+./gradlew :app:downloadAssets
+./gradlew :app:assembleOssDebug
+./gradlew :app:assembleOssRelease
+```
+
+## 주의
+
+- 실제 WARP/Proton private key를 이 저장소에 커밋하지 마세요.
+- Smart Route에서 생성된 JSON을 공유할 때는 private key를 반드시 가리세요.
+- 패키지 이름이 원본 Exclave와 다르므로 원본 앱과 별도 앱으로 설치됩니다.
+
+## 라이선스
+
+이 프로젝트는 원본 Exclave와 동일하게 GNU General Public License 계열 라이선스를 따릅니다. 자세한 내용은 [LICENSE](LICENSE)를 확인하세요.
+
+## 출처
+
+- [Exclave](https://github.com/ExclaveNetwork/Exclave)
 - [SagerNet](https://github.com/SagerNet/SagerNet)
-- [husi](https://github.com/xchacha20-poly1305/husi)
-- Other forks of SagerNet
+- [Shadowsocks Android](https://github.com/shadowsocks/shadowsocks-android)
