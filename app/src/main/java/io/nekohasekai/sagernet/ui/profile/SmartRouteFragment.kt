@@ -26,6 +26,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
+import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
@@ -431,6 +432,7 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
     }
 
     private fun saveProfile() {
+        ensureSmartRouteRuntimeDefaults()
         val result = generateOrShow(updateDomainText = true) ?: return
         val name = profileName.text?.toString()?.trim()
             ?.takeIf { it.isNotEmpty() }
@@ -512,6 +514,15 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
     }
 
     private fun hasCompleteConf() = defaultConf.isNotBlank() && bypassConf.isNotBlank()
+
+    private fun ensureSmartRouteRuntimeDefaults() {
+        if (DataStore.serviceMode != Key.MODE_PROXY) DataStore.serviceMode = Key.MODE_PROXY
+        if (!DataStore.requireSocks) DataStore.requireSocks = true
+        if (!DataStore.requireHttp) DataStore.requireHttp = true
+        if (!DataStore.appendHttpProxy) DataStore.appendHttpProxy = true
+        DataStore.socksPort = DataStore.socksPort
+        DataStore.httpPort = DataStore.httpPort
+    }
 
     private fun currentProxyStatus(): String {
         val listen = if (DataStore.allowAccess) "0.0.0.0" else "127.0.0.1"

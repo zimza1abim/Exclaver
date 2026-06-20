@@ -61,6 +61,7 @@ Smart Route does not store separate proxy ports. It uses the normal SOCKS/HTTP i
 - SOCKS port: `Settings > SOCKS5 proxy port`
 - HTTP port: `Settings > HTTP proxy port`
 - SOCKS/HTTP enabled state also follows app settings.
+- Tapping `Save / apply Smart Route` automatically enables proxy mode, the SOCKS inbound, and the HTTP inbound.
 - If you change proxy ports in settings, Smart Route uses the current ports when it runs.
 - The Smart Route screen shows the currently active SOCKS/HTTP addresses.
 
