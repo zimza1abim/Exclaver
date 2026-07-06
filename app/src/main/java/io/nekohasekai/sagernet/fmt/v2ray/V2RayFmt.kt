@@ -210,7 +210,7 @@ fun parseV2Ray(link: String): StandardV2RayBean {
             }
             url.queryParameter("pcs")?.takeIf { it.isNotEmpty() }?.let { pcs ->
                 bean.pinnedPeerCertificateSha256 =
-                    pcs.split(if (pcs.contains("~")) "~" else ",")
+                    pcs.split(",")
                         .mapNotNull { it.trim().ifEmpty { null }?.replace(":", "") }
                         .joinToString("\n")
                 if (!bean.pinnedPeerCertificateSha256.isNullOrEmpty()) {
@@ -258,7 +258,8 @@ fun parseV2Ray(link: String): StandardV2RayBean {
 
     bean.type = url.queryParameter("type")
     when (bean.type) {
-        "tcp", null -> {
+        "tcp", "raw", null -> {
+            bean.type = "tcp"
             url.queryParameter("headerType")?.let { headerType ->
                 // invented by v2rayN(G)
                 when (headerType) {
@@ -437,6 +438,7 @@ fun parseV2Ray(link: String): StandardV2RayBean {
                     "kcp" -> {
                         json.getArray("udp", ignoreCase = true)?.takeIf { it.isNotEmpty() }?.also { udpMasks ->
                             if (udpMasks.size !in 1..2) error("unsupported")
+                            var isMkcpLegacy = false
                             when (udpMasks.last().getString("type", ignoreCase = true)) {
                                 "mkcp-original" -> {}
                                 "mkcp-aes128gcm" -> {
@@ -447,16 +449,42 @@ fun parseV2Ray(link: String): StandardV2RayBean {
                                         }
                                     }
                                 }
+                                "mkcp-legacy" -> {
+                                    isMkcpLegacy = true
+                                    udpMasks.last().getObject("settings", ignoreCase = true)?.also { settings ->
+                                        settings.getString("header", ignoreCase = true).orEmpty().lowercase().also {
+                                            when (it) {
+                                                "dtls", "srtp", "utp", "wireguard" -> bean.headerType = it
+                                                "wechat" -> bean.headerType = "wechat-video"
+                                                else -> error("unsupported")
+                                            }
+                                        }
+                                    }
+                                }
                                 else -> error("unsupported")
                             }
                             if (udpMasks.size == 2) {
-                                when (udpMasks.first().getString("type", ignoreCase = true)) {
+                                when (val type = udpMasks.first().getString("type", ignoreCase = true)) {
                                     null -> {}
-                                    "header-dtls" -> bean.headerType = "dtls"
-                                    "header-srtp" -> bean.headerType = "srtp"
-                                    "header-utp" -> bean.headerType = "utp"
-                                    "header-wechat" -> bean.headerType = "wechat-video"
-                                    "header-wireguard" -> bean.headerType = "wireguard"
+                                    "header-wechat" -> {
+                                        if (isMkcpLegacy) error("unsupported")
+                                        bean.headerType = "wechat-video"
+                                    }
+                                    "header-dtls", "header-srtp", "header-utp", "header-wireguard" -> {
+                                        if (isMkcpLegacy) error("unsupported")
+                                        bean.headerType = type.removePrefix("header-")
+                                    }
+                                    "mkcp-legacy" -> {
+                                        if (!isMkcpLegacy) error("unsupported")
+                                        udpMasks.first().getObject("settings", ignoreCase = true)?.also { settings ->
+                                            settings.getString("header", ignoreCase = true).orEmpty().also {
+                                                if (it.isNotEmpty()) error("unsupported")
+                                            }
+                                            settings.getString("value", ignoreCase = true).orEmpty().also {
+                                                bean.mKcpSeed = it
+                                            }
+                                        }
+                                    }
                                     else -> error("unsupported")
                                 }
                             }
@@ -489,7 +517,9 @@ fun parseV2Ray(link: String): StandardV2RayBean {
                     }
                 }
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            throw e
+        }
     }
 
     return bean
@@ -614,6 +644,15 @@ private fun parseV2RayN(json: JsonObject): VMessBean {
             json.getInt("insecure")?.takeIf { it == 1 }?.let {
                 bean.allowInsecure = true
             }
+            json.getString("pcs")?.takeIf { it.isNotEmpty() }?.let { pcs ->
+                bean.pinnedPeerCertificateSha256 =
+                    pcs.split(",")
+                        .mapNotNull { it.trim().ifEmpty { null }?.replace(":", "") }
+                        .joinToString("\n")
+                if (!bean.pinnedPeerCertificateSha256.isNullOrEmpty()) {
+                    bean.allowInsecure = true
+                }
+            }
         }
         "reality" -> {
             error("v2rayN(G) style link lacks REALITY public key support and does not work at all.")
@@ -718,29 +757,41 @@ fun StandardV2RayBean.toUri(): String? {
             if (headerType != "none") {
                 builder.addQueryParameter("headerType", headerType)
             }
-            if (mKcpSeed.isEmpty()) {
-                builder.addQueryParameter("fm", JsonObject().apply {
-                    // fuck rprx finalmask
-                    add("udp", JsonArray().apply {
-                        add(JsonObject().apply {
-                            addProperty("type", "mkcp-original")
-                        })
-                    })
-                }.toString())
-            } else {
+            if (mKcpSeed.isNotEmpty()) {
                 builder.addQueryParameter("seed", mKcpSeed)
-                builder.addQueryParameter("fm", JsonObject().apply {
-                    // fuck rprx finalmask
-                    add("udp", JsonArray().apply {
-                        add(JsonObject().apply {
-                            addProperty("type", "mkcp-aes128gcm")
-                            add("settings", JsonObject().apply {
-                                addProperty("password", mKcpSeed)
-                            })
-                        })
-                    })
-                }.toString())
             }
+            // fuck rprx finalmask
+            builder.addQueryParameter("fm", JsonObject().apply {
+                add("udp", JsonArray().apply {
+                    add(JsonObject().apply {
+                        addProperty("type", "mkcp-legacy")
+                        if (mKcpSeed.isNotEmpty()) {
+                            add("settings", JsonObject().apply {
+                                addProperty("value", mKcpSeed)
+                            })
+                        }
+                    })
+                    when (headerType) {
+                        "none" -> {}
+                        "srtp", "utp", "dtls", "wireguard" -> {
+                            add(JsonObject().apply {
+                                addProperty("type", "mkcp-legacy")
+                                add("settings", JsonObject().apply {
+                                    addProperty("header", headerType)
+                                })
+                            })
+                        }
+                        "wechat-video" -> {
+                            add(JsonObject().apply {
+                                addProperty("type", "mkcp-legacy")
+                                add("settings", JsonObject().apply {
+                                    addProperty("header", "wechat")
+                                })
+                            })
+                        }
+                    }
+                })
+            }.toString())
         }
         "ws" -> {
             if (host.isNotEmpty()) {
@@ -869,7 +920,7 @@ fun StandardV2RayBean.toUri(): String? {
                 builder.addQueryParameter("allowInsecure", "1")
             }
             if (pinnedPeerCertificateSha256.isNotEmpty()) {
-                builder.addQueryParameter("pcs", pinnedPeerCertificateSha256.listByLineOrComma().joinToString("~"))
+                builder.addQueryParameter("pcs", pinnedPeerCertificateSha256.listByLineOrComma().joinToString(":"))
             }
             if (this is VLESSBean && flow.isNotEmpty()) {
                 builder.addQueryParameter("flow", flow.removeSuffix("-udp443"))

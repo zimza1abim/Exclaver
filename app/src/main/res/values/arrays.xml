@@ -774,11 +774,6 @@
         <item>Shadowsocks</item>
     </string-array>
 
-    <string-array name="shadowtls_protocol_version_value">
-        <item>2</item>
-        <item>3</item>
-    </string-array>
-
     <string-array name="language_entry">
         <item>@string/language_system_default</item>
         <item>@string/language_ar_display_name</item>
@@ -792,6 +787,7 @@
         <item>@string/language_ko_display_name</item>
         <item>@string/language_nb_NO_display_name</item>
         <item>@string/language_ru_display_name</item>
+        <item>@string/language_ta_display_name</item>
         <item>@string/language_tr_display_name</item>
         <item>@string/language_zh_Hans_CN_display_name</item>
         <item>@string/language_zh_Hant_TW_display_name</item>
@@ -810,6 +806,7 @@
         <item>ko</item>
         <item>nb-NO</item>
         <item>ru</item>
+        <item>ta</item>
         <item>tr</item>
         <item>zh-Hans-CN</item>
         <item>zh-Hant-TW</item>

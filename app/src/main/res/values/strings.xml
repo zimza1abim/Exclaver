@@ -761,4 +761,5 @@
     <string name="smart_route_error_invalid_domain">Invalid domain input.</string>
     <string name="smart_route_error_domain_empty">Add at least one domain.</string>
     <string name="smart_route_warning_multiple_peers">Multiple peers found. The first valid peer was used.</string>
+    <string name="nearby_devices_permission_notice">This requires the \"nearby devices\" permission to work, but the permission has not been granted.</string>
 </resources>
