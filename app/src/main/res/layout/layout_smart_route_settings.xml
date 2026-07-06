@@ -1,364 +1,169 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/smart_route_root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:layout_height="match_parent">
 
-    <include
-        layout="@layout/layout_appbar"
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="232dp"
+        android:background="?attr/colorPrimary">
 
-    <ScrollView
+        <com.google.android.material.appbar.CollapsingToolbarLayout
+            android:id="@+id/collapsing_toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:contentScrim="?attr/colorPrimary"
+            app:layout_scrollFlags="scroll|exitUntilCollapsed|snap"
+            app:title="@string/smart_route"
+            app:titleEnabled="false">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="bottom"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingTop="?attr/actionBarSize"
+                android:paddingEnd="16dp"
+                android:paddingBottom="10dp"
+                app:layout_collapseMode="parallax">
+
+                <TextView
+                    android:id="@+id/smart_route_profile_selector"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:maxLines="1"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:text="@string/smart_route_current_profile"
+                    android:textColor="?android:attr/textColorPrimaryInverse"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/smart_route_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:maxLines="1"
+                    android:text="@string/smart_route_not_configured"
+                    android:textSize="14sp"
+                    android:textColor="?android:attr/textColorPrimaryInverse" />
+
+                <TextView
+                    android:id="@+id/smart_route_proxy_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="30dp"
+                    android:layout_marginTop="6dp"
+                    android:background="@drawable/bg_smart_route_header_chip"
+                    android:ellipsize="end"
+                    android:gravity="center_vertical"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:textSize="12sp"
+                    android:textColor="?android:attr/textColorPrimaryInverse" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_smart_route_input"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="6dp"
+                    android:paddingTop="0dp"
+                    android:paddingBottom="0dp">
+
+                    <androidx.appcompat.widget.AppCompatEditText
+                        android:id="@+id/domain_input"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:background="@android:color/transparent"
+                        android:gravity="center_vertical"
+                        android:hint="@string/smart_route_domain_input_hint"
+                        android:imeOptions="actionDone"
+                        android:includeFontPadding="false"
+                        android:inputType="textUri|textNoSuggestions"
+                        android:padding="0dp"
+                        android:singleLine="true"
+                        android:textColor="#202124"
+                        android:textColorHint="#6B7280"
+                        android:textCursorDrawable="@null"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:id="@+id/domain_add"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:text="+"
+                        android:textColor="?attr/colorPrimary"
+                        android:textSize="24sp" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/domain_preview"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:maxLines="1"
+                    android:text="@string/smart_route_domain_preview_empty"
+                    android:textColor="?android:attr/textColorSecondaryInverse"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <com.google.android.material.appbar.MaterialToolbar
+                android:id="@+id/toolbar"
+                android:layout_width="match_parent"
+                android:layout_height="?attr/actionBarSize"
+                android:background="@android:color/transparent"
+                android:theme="?actionBarTheme"
+                app:layout_collapseMode="pin"
+                app:popupTheme="@style/ThemeOverlay.AppCompat.DayNight"
+                app:title="@string/smart_route" />
+        </com.google.android.material.appbar.CollapsingToolbarLayout>
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true">
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <LinearLayout
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/domain_list"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingStart="8dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="96dp" />
 
-            <TextView
-                android:id="@+id/smart_route_status"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/smart_route_not_configured"
-                android:textAppearance="?attr/textAppearanceBody2" />
+        <include
+            android:id="@+id/empty_state"
+            layout="@layout/layout_smart_route_empty_state"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </FrameLayout>
 
-            <TextView
-                android:id="@+id/smart_route_proxy_status"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:textAppearance="?attr/textAppearanceBody2" />
-
-            <Button
-                android:id="@+id/open_proxy_settings"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/smart_route_open_proxy_settings" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:text="@string/smart_route_domain_list"
-                android:textAppearance="?attr/textAppearanceHeadline6" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/smart_route_domain_list_summary"
-                android:textAppearance="?attr/textAppearanceBody2" />
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:hint="@string/smart_route_domain_input_hint">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/domain_input"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:imeOptions="actionDone"
-                    android:inputType="textMultiLine|textNoSuggestions"
-                    android:singleLine="false" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <Button
-                android:id="@+id/domain_add"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/smart_route_add_domain" />
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:hint="@string/smart_route_search_domains">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/domain_search"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:singleLine="true" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <TextView
-                android:id="@+id/domain_count"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/smart_route_checked_domains"
-                android:textAppearance="?attr/textAppearanceSubtitle1" />
-
-            <LinearLayout
-                android:id="@+id/domain_checked_list"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical" />
-
-            <TextView
-                android:id="@+id/domain_empty"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/smart_route_no_domains"
-                android:textAppearance="?attr/textAppearanceBody2" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/domains_select_visible"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/smart_route_select_visible" />
-
-                <Button
-                    android:id="@+id/domains_clear_selection"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/smart_route_clear_selection" />
-            </LinearLayout>
-
-            <Button
-                android:id="@+id/domains_remove_checked"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/smart_route_remove_checked_domains" />
-
-            <Button
-                android:id="@+id/save_profile"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/smart_route_save_profile" />
-
-            <Button
-                android:id="@+id/toggle_setup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:text="@string/smart_route_show_setup" />
-
-            <LinearLayout
-                android:id="@+id/setup_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/profile_name">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/profile_name"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:singleLine="true" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <TextView
-                    android:id="@+id/default_conf_status"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:text="@string/smart_route_default_conf_missing"
-                    android:textAppearance="?attr/textAppearanceBody2" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/smart_route_default_conf"
-                    android:textAppearance="?attr/textAppearanceHeadline6" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/smart_route_default_conf_summary"
-                    android:textAppearance="?attr/textAppearanceBody2" />
-
-                <LinearLayout
-                    android:id="@+id/default_conf_actions"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="vertical">
-
-                    <Button
-                        android:id="@+id/default_from_file"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/smart_route_load_from_file" />
-
-                    <Button
-                        android:id="@+id/default_from_clipboard"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/smart_route_paste_from_clipboard" />
-
-                    <Button
-                        android:id="@+id/default_edit"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/smart_route_view_edit_content" />
-
-                    <Button
-                        android:id="@+id/default_clear"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/smart_route_clear" />
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/bypass_conf_status"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:text="@string/smart_route_bypass_conf_missing"
-                    android:textAppearance="?attr/textAppearanceBody2" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/smart_route_bypass_conf"
-                    android:textAppearance="?attr/textAppearanceHeadline6" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/smart_route_bypass_conf_summary"
-                    android:textAppearance="?attr/textAppearanceBody2" />
-
-                <LinearLayout
-                    android:id="@+id/bypass_conf_actions"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="vertical">
-
-                    <Button
-                        android:id="@+id/bypass_from_file"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/smart_route_load_from_file" />
-
-                    <Button
-                        android:id="@+id/bypass_from_clipboard"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/smart_route_paste_from_clipboard" />
-
-                    <Button
-                        android:id="@+id/bypass_edit"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/smart_route_view_edit_content" />
-
-                    <Button
-                        android:id="@+id/bypass_clear"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/smart_route_clear" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <Button
-                android:id="@+id/toggle_domain_tools"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/smart_route_show_domain_tools" />
-
-            <LinearLayout
-                android:id="@+id/domain_tools_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <Button
-                    android:id="@+id/domains_advanced_edit"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/smart_route_advanced_domain_edit" />
-
-                <Button
-                    android:id="@+id/domains_from_file"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/smart_route_import_txt" />
-
-                <Button
-                    android:id="@+id/domains_export_file"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/smart_route_export_txt" />
-
-                <Button
-                    android:id="@+id/domains_normalize"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/smart_route_dedupe" />
-
-                <Button
-                    android:id="@+id/domains_sort"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/smart_route_sort" />
-
-                <Button
-                    android:id="@+id/domains_clear"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/smart_route_clear_all" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/smart_route_domain_help"
-                    android:textAppearance="?attr/textAppearanceCaption" />
-            </LinearLayout>
-
-            <Button
-                android:id="@+id/toggle_json_tools"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/smart_route_show_json_tools" />
-
-            <LinearLayout
-                android:id="@+id/json_tools_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <Button
-                    android:id="@+id/validate_config"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/smart_route_validate" />
-
-                <Button
-                    android:id="@+id/preview_json"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/smart_route_preview_json" />
-
-                <Button
-                    android:id="@+id/copy_json"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/smart_route_copy_json" />
-            </LinearLayout>
-        </LinearLayout>
-    </ScrollView>
-</LinearLayout>
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/save_profile"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="16dp"
+        android:text="@string/smart_route_save_profile"
+        app:layout_anchor="@id/domain_list"
+        app:layout_anchorGravity="bottom|end" />
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

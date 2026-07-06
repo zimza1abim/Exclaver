@@ -2858,6 +2858,21 @@ fun buildCustomConfig(proxy: ProxyEntity, forTest: Boolean = false, forExport: B
             outbound.asJsonObject?.get("tag")?.asString in setOf("smart-default", "smart-bypass")
         } == true
     }.getOrDefault(false)
+    if (isSmartRouteConfig && DataStore.enableFakeDns) {
+        useFakeDns = true
+        if (!config.has("fakedns")) {
+            config.add("fakedns", JsonArray().apply {
+                add(JsonObject().apply {
+                    addProperty("ipPool", "${VpnService.FAKEDNS_VLAN4_CLIENT}/${VpnService.FAKEDNS_VLAN4_CLIENT_PREFIX}")
+                    addProperty("poolSize", VpnService.FAKEDNS_VLAN4_CLIENT_POOL_SIZE)
+                })
+                add(JsonObject().apply {
+                    addProperty("ipPool", "${VpnService.FAKEDNS_VLAN6_CLIENT}/${VpnService.FAKEDNS_VLAN6_CLIENT_PREFIX}")
+                    addProperty("poolSize", VpnService.FAKEDNS_VLAN6_CLIENT_POOL_SIZE)
+                })
+            })
+        }
+    }
 
     if (!forTest && !forExport && isSmartRouteConfig) {
         val bind = if (DataStore.allowAccess) "0.0.0.0" else LOCALHOST
@@ -2865,7 +2880,7 @@ fun buildCustomConfig(proxy: ProxyEntity, forTest: Boolean = false, forExport: B
         val inboundTags = inbounds.mapNotNull { it.tag }.toSet()
         fun smartRouteSniffing(protocols: List<String>) = InboundObject.SniffingObject().apply {
             enabled = true
-            destOverride = protocols
+            destOverride = if (useFakeDns) listOf("fakedns") + protocols else protocols
             routeOnly = true
         }
         if (DataStore.requireSocks && TAG_SOCKS !in inboundTags) {

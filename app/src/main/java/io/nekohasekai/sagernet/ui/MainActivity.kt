@@ -84,6 +84,35 @@ class MainActivity : ThemedActivity(),
         }
     }
 
+    private fun acceptLicenseAndRequestPermissions() {
+        DataStore.configurationStore.putBoolean(
+            if (Libexclavecore.buildWithClash()) "gplv3OnlyAccepted"
+            else "gplv3OrLaterAccepted", true)
+        requestStartupPermissionsOnce()
+    }
+
+    private fun requestStartupPermissionsOnce() {
+        if (DataStore.configurationStore.getBoolean("permissionRequestedV2") == true) return
+
+        DataStore.configurationStore.putBoolean("permissionRequestedV2", true)
+        PackageCache.awaitLoadSync()
+
+        val permissions = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            app.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN &&
+            app.checkSelfPermission(Manifest.permission.ACCESS_LOCAL_NETWORK) != PackageManager.PERMISSION_GRANTED
+        ) {
+            permissions.add(Manifest.permission.ACCESS_LOCAL_NETWORK)
+        }
+        if (permissions.isNotEmpty()) {
+            ActivityCompat.requestPermissions(this@MainActivity, permissions.toTypedArray(), 0)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -185,32 +214,10 @@ class MainActivity : ThemedActivity(),
                         }
                     )
                     setPositiveButton(android.R.string.ok) { _, _ ->
-                        DataStore.configurationStore.putBoolean(
-                            if (Libexclavecore.buildWithClash()) "gplv3OnlyAccepted"
-                            else "gplv3OrLaterAccepted", true)
-                        if (DataStore.configurationStore.getBoolean("permissionRequested") != true) {
-                            DataStore.configurationStore.putBoolean("permissionRequested", true)
-                            PackageCache.awaitLoadSync()
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                if (app.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                                    ActivityCompat.requestPermissions(this@MainActivity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0)
-                                }
-                            }
-                        }
+                        acceptLicenseAndRequestPermissions()
                     }
                     setOnCancelListener { _ ->
-                        DataStore.configurationStore.putBoolean(
-                            if (Libexclavecore.buildWithClash()) "gplv3OnlyAccepted"
-                            else "gplv3OrLaterAccepted", true)
-                        if (DataStore.configurationStore.getBoolean("permissionRequested") != true) {
-                            DataStore.configurationStore.putBoolean("permissionRequested", true)
-                            PackageCache.awaitLoadSync()
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                if (app.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                                    ActivityCompat.requestPermissions(this@MainActivity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0)
-                                }
-                            }
-                        }
+                        acceptLicenseAndRequestPermissions()
                     }
                 }.show()
             }

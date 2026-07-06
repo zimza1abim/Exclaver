@@ -18,6 +18,7 @@
 
 package io.nekohasekai.sagernet.ui
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -185,6 +186,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                     add(it.toBase64Str())
                 }
             })
+            out.add("smartRouteProfiles", exportSmartRouteProfiles())
         }
         return GsonBuilder().setPrettyPrinting().create().toJson(out)
     }
@@ -351,6 +353,70 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
             PublicDatabase.kvPairDao.reset()
             PublicDatabase.kvPairDao.insert(settings)
         }
+        if (setting && content.contains("smartRouteProfiles")) {
+            importSmartRouteProfiles(content.getAsJsonObject("smartRouteProfiles"))
+        }
+    }
+
+    private fun smartRoutePrefs() = app.getSharedPreferences("smart_route_profiles", Context.MODE_PRIVATE)
+
+    private fun exportSmartRouteProfiles(): JsonObject {
+        return JsonObject().apply {
+            smartRoutePrefs().all.forEach { (key, value) ->
+                add(key, JsonObject().apply {
+                    when (value) {
+                        is String -> {
+                            addProperty("type", "string")
+                            addProperty("value", value)
+                        }
+                        is Long -> {
+                            addProperty("type", "long")
+                            addProperty("value", value)
+                        }
+                        is Int -> {
+                            addProperty("type", "int")
+                            addProperty("value", value)
+                        }
+                        is Boolean -> {
+                            addProperty("type", "boolean")
+                            addProperty("value", value)
+                        }
+                        is Float -> {
+                            addProperty("type", "float")
+                            addProperty("value", value)
+                        }
+                        is Set<*> -> {
+                            addProperty("type", "stringSet")
+                            add("value", JsonArray().apply {
+                                value.filterIsInstance<String>().forEach { add(it) }
+                            })
+                        }
+                    }
+                })
+            }
+        }
+    }
+
+    private fun importSmartRouteProfiles(content: JsonObject) {
+        val edit = smartRoutePrefs().edit().clear()
+        content.entrySet().forEach { (key, value) ->
+            val item = value.takeIf { it.isJsonObject }?.asJsonObject ?: return@forEach
+            val type = item.get("type")?.asString ?: return@forEach
+            val stored = item.get("value") ?: return@forEach
+            when (type) {
+                "string" -> edit.putString(key, stored.asString)
+                "long" -> edit.putLong(key, stored.asLong)
+                "int" -> edit.putInt(key, stored.asInt)
+                "boolean" -> edit.putBoolean(key, stored.asBoolean)
+                "float" -> edit.putFloat(key, stored.asFloat)
+                "stringSet" -> if (stored.isJsonArray) {
+                    edit.putStringSet(key, stored.asJsonArray.mapNotNull {
+                        it.takeIf { element -> element.isJsonPrimitive }?.asString
+                    }.toSet())
+                }
+            }
+        }
+        edit.commit()
     }
 
 }

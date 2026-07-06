@@ -1,5 +1,23 @@
 # Exclaver
 
+## Smart Route Highlights
+
+- Smart Route is now a profile creation system, not just a simple settings screen.
+- Setups created in Smart Route are saved as real profiles in the Configuration section.
+- Multiple Smart Route profiles can be created, switched, duplicated, renamed, and deleted.
+- Smart Route UI/UX has been heavily redesigned.
+- Route conf setup is separated into a Bottom Sheet.
+- The domain list is based on RecyclerView.
+- Selected domains can be edited or deleted directly from the list.
+- Empty state, search, sort, duplicate cleanup, and bulk edit are supported.
+- Profiles can be saved without domains.
+- A default route conf and bypass route conf are enough to save a profile.
+- Domains can be added later.
+
+<details>
+<summary>Previous README</summary>
+
+# Previous README
 Exclaver is an Android proxy app based on [Exclave](https://github.com/ExclaveNetwork/Exclave), customized for Korean Smart Route usage.
 
 [한국어 README](README.md)
@@ -7,18 +25,17 @@ Exclaver is an Android proxy app based on [Exclave](https://github.com/ExclaveNe
 ## Highlights
 
 - App name: `Exclaver`
-- Package name: `com.sampplekorea.exclaver`
+- Package name: `dev.exclave`
 - Korean-first UI
 - Dedicated Smart Route management menu
 - Generates an Exclave custom config from two WireGuard `.conf` files
 - GitHub Actions APK builds and releases
-- Release APKs are signed with a stable key stored in GitHub Secrets
 
 ## Download
 
 Download the latest APK from GitHub Releases:
 
-https://github.com/sampple-korea/Exclaver/releases
+https://github.com/zimza1abim/Exclaver/releases
 
 Most Android phones should use the `arm64-v8a` APK.
 
@@ -130,47 +147,6 @@ All other traffic -> WARP
 
 The generated configuration is saved as a normal Exclave custom config profile. Exclaver does not add a new proxy core; it generates WireGuard outbounds and routing rules for the existing core.
 
-## Supported WireGuard Conf Fields
-
-`[Interface]`
-
-- `PrivateKey`
-- `Address`
-- `DNS`
-- `MTU`
-
-`[Peer]`
-
-- `PublicKey`
-- `PresharedKey` or `PreSharedKey`
-- `AllowedIPs`
-- `Endpoint`
-- `PersistentKeepalive`
-- `Reserved` or `reserved`
-
-`Reserved` is preserved for WARP compatibility.
-
-## Build
-
-This repository builds APKs with GitHub Actions.
-
-Manual release flow:
-
-1. Open GitHub Actions.
-2. Run the `Smart Route APK` workflow.
-3. Enter a tag to create a GitHub Release.
-
-Signing secrets:
-
-```text
-ANDROID_KEYSTORE_BASE64
-ANDROID_KEYSTORE_PASSWORD
-ANDROID_KEY_ALIAS
-ANDROID_KEY_PASSWORD
-```
-
-Release APKs are built only when signing secrets are present. If secrets are missing, the workflow still uploads debug APK artifacts without failing the whole run.
-
 ## Development
 
 - JDK 21
@@ -189,12 +165,6 @@ Main build tasks:
 ./gradlew :app:assembleOssRelease
 ```
 
-## Notes
-
-- Do not commit real WARP or Proton private keys.
-- Always mask private keys before sharing generated JSON.
-- The package name differs from upstream Exclave, so Exclaver installs as a separate app.
-
 ## License
 
 This project follows the same GNU General Public License family license as upstream Exclave. See [LICENSE](LICENSE).
@@ -204,3 +174,7 @@ This project follows the same GNU General Public License family license as upstr
 - [Exclave](https://github.com/ExclaveNetwork/Exclave)
 - [SagerNet](https://github.com/SagerNet/SagerNet)
 - [Shadowsocks Android](https://github.com/shadowsocks/shadowsocks-android)
+
+</details>
+
+

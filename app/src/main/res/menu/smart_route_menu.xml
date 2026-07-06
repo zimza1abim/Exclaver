@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_smart_route_select_profile"
+        android:title="@string/smart_route_menu_select_profile"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_new_profile"
+        android:title="@string/smart_route_menu_new_profile"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_duplicate_profile"
+        android:title="@string/smart_route_menu_duplicate_profile"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_rename_profile"
+        android:title="@string/smart_route_menu_rename_profile"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_delete_profile"
+        android:title="@string/smart_route_menu_delete_profile"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_default_status"
+        android:enabled="false"
+        android:title="@string/smart_route_default_conf_missing"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_bypass_status"
+        android:enabled="false"
+        android:title="@string/smart_route_bypass_conf_missing"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_setup"
+        android:title="@string/smart_route_menu_connection"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_search"
+        android:title="@string/smart_route_menu_search"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_delete_selected"
+        android:title="@string/smart_route_menu_delete_selected"
+        android:visible="false"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_import"
+        android:title="@string/smart_route_menu_import"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_advanced_edit"
+        android:title="@string/smart_route_menu_edit_all"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_export"
+        android:title="@string/smart_route_menu_export"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_normalize"
+        android:title="@string/smart_route_menu_normalize"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_sort"
+        android:title="@string/smart_route_menu_sort"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_validate"
+        android:title="@string/smart_route_menu_validate"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_preview_json"
+        android:title="@string/smart_route_menu_preview_json"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_copy_json"
+        android:title="@string/smart_route_menu_copy_json"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_proxy_settings"
+        android:title="@string/smart_route_menu_proxy"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_smart_route_clear_all"
+        android:title="@string/smart_route_menu_clear_all"
+        app:showAsAction="never" />
+</menu>

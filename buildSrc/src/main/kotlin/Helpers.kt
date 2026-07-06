@@ -117,7 +117,7 @@ fun Project.setupAppCommon(projectName: String = "") {
             }
         }
 
-        defaultConfig.targetSdk = 36
+        defaultConfig.targetSdk = 37
         buildTypes.getByName("release") {
             vcsInfo.include = false
             signingConfigs.findByName("release")?.let {
@@ -138,7 +138,7 @@ fun Project.setupAppCommon(projectName: String = "") {
                 isEnable = true
                 isUniversalApk = false
                 reset()
-                include("x86", "x86_64", "armeabi-v7a", "arm64-v8a")
+                include("arm64-v8a")
             }
         }
     }

@@ -1,5 +1,23 @@
 # Exclaver
 
+## Smart Route Highlights
+
+- Smart Route is now a profile creation system, not just a simple settings screen.
+- Setups created in Smart Route are saved as real profiles in the Configuration section.
+- Multiple Smart Route profiles can be created, switched, duplicated, renamed, and deleted.
+- Smart Route UI/UX has been heavily redesigned.
+- Route conf setup is separated into a Bottom Sheet.
+- The domain list is based on RecyclerView.
+- Selected domains can be edited or deleted directly from the list.
+- Empty state, search, sort, duplicate cleanup, and bulk edit are supported.
+- Profiles can be saved without domains.
+- A default route conf and bypass route conf are enough to save a profile.
+- Domains can be added later.
+
+<details>
+<summary>Previous README</summary>
+
+# Previous README
 한국어 SmartRoute 사용을 위해 [Exclave](https://github.com/ExclaveNetwork/Exclave)를 기반으로 수정한 Android 프록시 앱입니다.
 
 [English README](README.en.md)
@@ -7,18 +25,17 @@
 ## 주요 기능
 
 - 앱 이름: `Exclaver`
-- 패키지 이름: `com.sampplekorea.exclaver`
+- 패키지 이름: `dev.exclave`
 - 한국어 UI 기본 지원
 - Smart Route 관리 메뉴 제공
 - WireGuard `.conf` 2개로 커스텀 라우팅 JSON 자동 생성
 - GitHub Actions 기반 APK 빌드 및 릴리즈
-- release APK는 GitHub Secrets에 저장된 고정 키로 서명
 
 ## 다운로드
 
 최신 APK는 GitHub Releases에서 받을 수 있습니다.
 
-https://github.com/sampple-korea/Exclaver/releases
+https://github.com/zimza1abim/Exclaver/releases
 
 일반적인 Android 기기는 `arm64-v8a` APK를 사용하면 됩니다.
 
@@ -130,47 +147,6 @@ claude.ai, anthropic.com, reddit.com, redd.it -> Proton
 
 생성되는 커스텀 설정은 기존 Exclave custom config 프로필로 저장됩니다. 별도 프록시 코어를 만들지 않고, WireGuard outbound와 routing rule을 자동 생성합니다.
 
-## WireGuard conf 지원 항목
-
-`[Interface]`
-
-- `PrivateKey`
-- `Address`
-- `DNS`
-- `MTU`
-
-`[Peer]`
-
-- `PublicKey`
-- `PresharedKey` 또는 `PreSharedKey`
-- `AllowedIPs`
-- `Endpoint`
-- `PersistentKeepalive`
-- `Reserved` 또는 `reserved`
-
-`Reserved` 값은 WARP 호환을 위해 보존합니다.
-
-## 빌드
-
-이 저장소는 GitHub Actions로 APK를 빌드합니다.
-
-수동 실행:
-
-1. GitHub Actions로 이동합니다.
-2. `Smart Route APK` workflow를 실행합니다.
-3. tag 값을 넣으면 GitHub Release가 생성됩니다.
-
-사용하는 signing secrets:
-
-```text
-ANDROID_KEYSTORE_BASE64
-ANDROID_KEYSTORE_PASSWORD
-ANDROID_KEY_ALIAS
-ANDROID_KEY_PASSWORD
-```
-
-release APK는 secrets가 있을 때만 빌드됩니다. secrets가 없으면 debug APK만 artifact로 업로드되고 workflow 전체는 실패하지 않도록 구성되어 있습니다.
-
 ## 개발 정보
 
 - JDK 21
@@ -189,12 +165,6 @@ release APK는 secrets가 있을 때만 빌드됩니다. secrets가 없으면 de
 ./gradlew :app:assembleOssRelease
 ```
 
-## 주의
-
-- 실제 WARP/Proton private key를 이 저장소에 커밋하지 마세요.
-- Smart Route에서 생성된 JSON을 공유할 때는 private key를 반드시 가리세요.
-- 패키지 이름이 원본 Exclave와 다르므로 원본 앱과 별도 앱으로 설치됩니다.
-
 ## 라이선스
 
 이 프로젝트는 원본 Exclave와 동일하게 GNU General Public License 계열 라이선스를 따릅니다. 자세한 내용은 [LICENSE](LICENSE)를 확인하세요.
@@ -204,3 +174,7 @@ release APK는 secrets가 있을 때만 빌드됩니다. secrets가 없으면 de
 - [Exclave](https://github.com/ExclaveNetwork/Exclave)
 - [SagerNet](https://github.com/SagerNet/SagerNet)
 - [Shadowsocks Android](https://github.com/shadowsocks/shadowsocks-android)
+
+</details>
+
+

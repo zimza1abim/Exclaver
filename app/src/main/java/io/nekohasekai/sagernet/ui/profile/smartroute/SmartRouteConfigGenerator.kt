@@ -25,18 +25,25 @@ data class SmartRouteGeneratedConfig(
 
 object SmartRouteConfigGenerator {
 
+    const val DEFAULT_DNS_SERVER = "1.1.1.1"
+
     private val gson = GsonBuilder().setPrettyPrinting().create()
 
-    fun generate(defaultConf: String, bypassConf: String, domainText: String): SmartRouteGeneratedConfig {
+    fun generate(
+        defaultConf: String,
+        bypassConf: String,
+        domainText: String,
+        dnsServer: String = DEFAULT_DNS_SERVER,
+    ): SmartRouteGeneratedConfig {
         val default = SmartRouteWireGuardParser.parse(defaultConf)
         val bypass = SmartRouteWireGuardParser.parse(bypassConf)
         val domains = SmartRouteDomainNormalizer.normalizeLines(domainText)
-        if (domains.isEmpty()) throw SmartRouteInputException(R.string.smart_route_error_domain_empty)
+        val dnsAddress = dnsServer.trim().ifEmpty { DEFAULT_DNS_SERVER }
 
         val root = JsonObject()
         root.add("dns", JsonObject().apply {
             add("servers", JsonArray().apply {
-                add(JsonObject().apply { addProperty("address", "1.1.1.1") })
+                add(JsonObject().apply { addProperty("address", dnsAddress) })
             })
         })
         root.add("log", JsonObject().apply { addProperty("loglevel", "warning") })
@@ -60,11 +67,13 @@ object SmartRouteConfigGenerator {
                     add("inboundTag", JsonArray().apply { add("dns-in") })
                     addProperty("outboundTag", "dns-out")
                 })
-                add(JsonObject().apply {
-                    addProperty("type", "field")
-                    add("domain", JsonArray().apply { domains.forEach { add(it) } })
-                    addProperty("outboundTag", "smart-bypass")
-                })
+                if (domains.isNotEmpty()) {
+                    add(JsonObject().apply {
+                        addProperty("type", "field")
+                        add("domain", JsonArray().apply { domains.forEach { add(it) } })
+                        addProperty("outboundTag", "smart-bypass")
+                    })
+                }
                 add(JsonObject().apply {
                     addProperty("type", "field")
                     addProperty("network", "tcp,udp")
