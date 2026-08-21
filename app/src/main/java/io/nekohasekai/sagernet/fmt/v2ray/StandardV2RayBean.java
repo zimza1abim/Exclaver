@@ -26,6 +26,7 @@ import io.nekohasekai.sagernet.fmt.AbstractBean;
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean;
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean;
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean;
+import io.nekohasekai.sagernet.ktx.NetsKt;
 import libexclavecore.Libexclavecore;
 
 public abstract class StandardV2RayBean extends AbstractBean {
@@ -61,6 +62,7 @@ public abstract class StandardV2RayBean extends AbstractBean {
     public String utlsFingerprint;
     public Boolean echEnabled;
     public String echConfig;
+    public String serverNameToVerify;
 
     public Boolean wsUseBrowserForwarder;
     public Boolean shUseBrowserForwarder;
@@ -76,6 +78,7 @@ public abstract class StandardV2RayBean extends AbstractBean {
     public Long hy2DownMbps;
     public Long hy2UpMbps;
     public String hy2Password;
+    public Boolean hy2ChromeParrot;
 
     public String mekyaKcpSeed;
     public String mekyaKcpHeaderType;
@@ -143,6 +146,7 @@ public abstract class StandardV2RayBean extends AbstractBean {
         if (utlsFingerprint == null) utlsFingerprint = "";
         if (echEnabled == null) echEnabled = false;
         if (echConfig == null) echConfig = "";
+        if (serverNameToVerify == null) serverNameToVerify = "";
 
         if (realityPublicKey == null) realityPublicKey = "";
         if (realityShortId == null) realityShortId = "";
@@ -153,6 +157,7 @@ public abstract class StandardV2RayBean extends AbstractBean {
         if (hy2DownMbps == null) hy2DownMbps = 0L;
         if (hy2UpMbps == null) hy2UpMbps = 0L;
         if (hy2Password == null) hy2Password = "";
+        if (hy2ChromeParrot == null) hy2ChromeParrot = false;
 
         if (mekyaKcpSeed == null) mekyaKcpSeed = "";
         if (mekyaKcpHeaderType == null) mekyaKcpHeaderType = "none";
@@ -172,7 +177,7 @@ public abstract class StandardV2RayBean extends AbstractBean {
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(36);
+        output.writeInt(38);
         super.serialize(output);
 
         output.writeString(uuid);
@@ -307,6 +312,8 @@ public abstract class StandardV2RayBean extends AbstractBean {
         output.writeBoolean(echEnabled);
 
         output.writeString(realityMldsa65Verify);
+        output.writeString(serverNameToVerify);
+        output.writeBoolean(hy2ChromeParrot);
     }
 
     @Override
@@ -560,6 +567,12 @@ public abstract class StandardV2RayBean extends AbstractBean {
         if (version >= 36) {
             realityMldsa65Verify = input.readString();
         }
+        if (version >= 37) {
+            serverNameToVerify = input.readString();
+        }
+        if (version >= 38) {
+            hy2ChromeParrot = input.readBoolean();
+        }
     }
 
     @Override
@@ -620,6 +633,7 @@ public abstract class StandardV2RayBean extends AbstractBean {
         bean.singMuxMinStreams = singMuxMinStreams;
         bean.singMuxMaxStreams = singMuxMaxStreams;
         bean.singMuxPadding = singMuxPadding;
+        bean.hy2ChromeParrot = hy2ChromeParrot;
     }
 
     @Override
@@ -643,6 +657,9 @@ public abstract class StandardV2RayBean extends AbstractBean {
                     return false;
                 }
                 if (!pinnedPeerCertificateSha256.isEmpty()) {
+                    return false;
+                }
+                if (!NetsKt.listByLineOrComma(serverNameToVerify).isEmpty()) {
                     return false;
                 }
                 break;

@@ -172,7 +172,7 @@ object PluginManager {
                 pluginId,
                 uri)?.let { InitResult(it) }
         } catch (t: Throwable) {
-            failure?.also { t.addSuppressed(it) }
+            failure.also { t.addSuppressed(it) }
             throw t
         }
     }
@@ -180,7 +180,6 @@ object PluginManager {
     private fun initNativeInternal(pluginId: String): String? {
         return when (pluginId) {
             "naive-plugin" -> "libnaive.so"
-            "shadowquic-plugin" -> "libshadowquic.so"
             else -> return null
         }.let {
             File(SagerNet.application.applicationInfo.nativeLibraryDir, it).apply {

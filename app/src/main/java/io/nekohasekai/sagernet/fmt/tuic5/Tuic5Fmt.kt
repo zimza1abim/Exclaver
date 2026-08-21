@@ -63,10 +63,10 @@ fun parseTuic(server: String): AbstractBean {
     }
 
     return Tuic5Bean().apply {
-        serverAddress = link.host.ifEmpty { error("empty host") }
-        serverPort = link.port
-        if (link.port == 0) {
-            serverPort = 443
+        serverAddress = link.host
+        serverPort = when {
+            !link.hasPort() -> 443
+            else -> link.port
         }
         uuid = link.username
         password = link.password
@@ -116,7 +116,7 @@ fun parseTuic(server: String): AbstractBean {
 
 fun Tuic5Bean.toUri(): String? {
     val builder = Libexclavecore.newURL("tuic").apply {
-        setHostPort(serverAddress.ifEmpty { error("empty server address") }, serverPort)
+        setHostPort(serverAddress, serverPort)
         username = uuid.ifEmpty { error("empty uuid") }
         if (name.isNotEmpty()) {
             fragment = name
@@ -143,7 +143,8 @@ fun Tuic5Bean.toUri(): String? {
     }
     // as pinned certificate is not exportable, only add `allow_insecure=1` if pinned certificate is not used
     if (allowInsecure && pinnedPeerCertificateSha256.isEmpty() &&
-        pinnedPeerCertificatePublicKeySha256.isEmpty() && pinnedPeerCertificateChainSha256.isEmpty()) {
+        pinnedPeerCertificatePublicKeySha256.isEmpty() && pinnedPeerCertificateChainSha256.isEmpty() &&
+        serverNameToVerify.listByLineOrComma().isEmpty()) {
         builder.addQueryParameter("allow_insecure", "1")
     }
     return builder.string

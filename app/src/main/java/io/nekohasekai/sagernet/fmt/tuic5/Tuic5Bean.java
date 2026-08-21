@@ -28,6 +28,7 @@ import org.jetbrains.annotations.NotNull;
 
 import io.nekohasekai.sagernet.fmt.AbstractBean;
 import io.nekohasekai.sagernet.fmt.KryoConverters;
+import io.nekohasekai.sagernet.ktx.NetsKt;
 import libexclavecore.Libexclavecore;
 
 public class Tuic5Bean extends AbstractBean {
@@ -49,6 +50,7 @@ public class Tuic5Bean extends AbstractBean {
     public String pinnedPeerCertificateSha256;
     public String mtlsCertificate;
     public String mtlsCertificatePrivateKey;
+    public String serverNameToVerify;
     public Boolean singUDPOverStream;
 
     @Override
@@ -71,12 +73,13 @@ public class Tuic5Bean extends AbstractBean {
         if (pinnedPeerCertificateSha256 == null) pinnedPeerCertificateSha256 = "";
         if (mtlsCertificate == null) mtlsCertificate = "";
         if (mtlsCertificatePrivateKey == null) mtlsCertificatePrivateKey = "";
+        if (serverNameToVerify == null) serverNameToVerify = "";
         if (singUDPOverStream == null) singUDPOverStream = false;
     }
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(5);
+        output.writeInt(6);
         super.serialize(output);
         output.writeString(password);
         output.writeString(certificates);
@@ -97,6 +100,7 @@ public class Tuic5Bean extends AbstractBean {
         output.writeBoolean(singUDPOverStream);
 
         output.writeBoolean(echEnabled);
+        output.writeString(serverNameToVerify);
     }
 
     @Override
@@ -135,11 +139,9 @@ public class Tuic5Bean extends AbstractBean {
         if (version >= 5) {
             echEnabled = input.readBoolean();
         }
-    }
-
-    @Override
-    public String network() {
-        return "udp";
+        if (version >= 6) {
+            serverNameToVerify = input.readString();
+        }
     }
 
     @Override
@@ -207,6 +209,9 @@ public class Tuic5Bean extends AbstractBean {
             return false;
         }
         if (!pinnedPeerCertificateSha256.isEmpty()) {
+            return false;
+        }
+        if (!NetsKt.listByLineOrComma(serverNameToVerify).isEmpty()) {
             return false;
         }
         return true;

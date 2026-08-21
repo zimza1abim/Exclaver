@@ -27,8 +27,11 @@ fun parseJuicity(url: String): JuicityBean {
     val link = Libexclavecore.parseURL(url)
     return JuicityBean().apply {
         name = link.fragment
-        serverAddress = link.host.ifEmpty { error("empty host") }
-        serverPort = link.port
+        serverAddress = link.host
+        serverPort = when {
+            !link.hasPort() -> error("invalid port")
+            else -> link.port
+        }
         uuid = link.username
         password = link.password
         link.queryParameter("sni")?.also {
@@ -55,7 +58,7 @@ fun parseJuicity(url: String): JuicityBean {
 
 fun JuicityBean.toUri(): String? {
     val builder = Libexclavecore.newURL("juicity").apply {
-        setHostPort(serverAddress.ifEmpty { error("empty server address") }, serverPort)
+        setHostPort(serverAddress, serverPort)
         username = uuid.ifEmpty { error("empty uuid") }
         if (name.isNotEmpty()) {
             fragment = name
@@ -85,7 +88,7 @@ fun JuicityBean.toUri(): String? {
     // only add `allow_insecure=1` if `pinnedPeerCertificate(PublicKey)Sha256` is not used
     if (pinnedPeerCertificateChainSha256.isNotEmpty() ||
         (allowInsecure && pinnedPeerCertificateSha256.isEmpty() &&
-                pinnedPeerCertificatePublicKeySha256.isEmpty())
+                pinnedPeerCertificatePublicKeySha256.isEmpty() && serverNameToVerify.listByLineOrComma().isEmpty())
         ) {
         builder.addQueryParameter("allow_insecure", "1")
     }

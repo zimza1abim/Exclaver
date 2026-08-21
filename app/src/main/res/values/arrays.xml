@@ -777,6 +777,7 @@
     <string-array name="language_entry">
         <item>@string/language_system_default</item>
         <item>@string/language_ar_display_name</item>
+        <item>@string/language_cs_display_name</item>
         <item>@string/language_en_display_name</item>
         <item>@string/language_es_display_name</item>
         <item>@string/language_fa_display_name</item>
@@ -796,6 +797,7 @@
     <string-array name="language_value">
         <item />
         <item>ar</item>
+        <item>cs</item>
         <item>en-US</item>
         <item>es</item>
         <item>fa</item>
@@ -887,14 +889,37 @@
     <string-array name="shadowquic_congestion_control_value">
         <item>bbr</item>
         <item>cubic</item>
-        <item>new-reno</item>
-        <item>brutal</item>
+        <item>new_reno</item>
     </string-array>
 
     <string-array name="hysteria2_obfs_type">
         <item />
         <item>salamander</item>
         <item>gecko</item>
+    </string-array>
+
+    <string-array name="snell_version_value">
+        <item>4</item>
+        <item>6</item>
+    </string-array>
+
+    <string-array name="snell_obfs_value">
+        <item>none</item>
+        <item>http</item>
+        <item>tls</item>
+    </string-array>
+
+    <string-array name="snell_mode_value">
+        <item>default</item>
+        <item>unshaped</item>
+        <item>unsafe-raw</item>
+    </string-array>
+
+    <string-array name="stun_test_type">
+        <item>@string/stun_test</item>
+        <item>@string/stun_legacy_test</item>
+        <item>@string/udp</item>
+        <item>@string/tcp</item>
     </string-array>
 
 </resources>

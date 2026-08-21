@@ -34,6 +34,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.supportedQuicSecurity
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.ktx.*
+import libexclavecore.Libexclavecore
 import kotlin.io.encoding.Base64
 
 fun parseV2Ray5Outbound(outbound: JsonObject): List<AbstractBean> {
@@ -126,8 +127,7 @@ fun parseV2Ray5Outbound(outbound: JsonObject): List<AbstractBean> {
                                         v2rayBean.allowInsecure = allowInsecure
                                     }
                                 }
-                                if (v2rayBean is VLESSBean || v2rayBean is TrojanBean) {
-                                    // Only parse ECH for shit VLESS or Trojan free nodes
+                                if (v2rayBean is VLESSBean || v2rayBean is TrojanBean || v2rayBean is VMessBean) {
                                     tlsConfig.getString("echDohServer")?.also {
                                         v2rayBean.echEnabled = true
                                     }
@@ -402,6 +402,13 @@ fun parseV2Ray5Outbound(outbound: JsonObject): List<AbstractBean> {
                         ?: securitySettings.getString("server_name"))?.also {
                         hysteria2Bean.sni = it
                     }
+                    securitySettings.getString("echDohServer")?.also {
+                        hysteria2Bean.echEnabled = true
+                    }
+                    securitySettings.getString("echConfig")?.also {
+                        hysteria2Bean.echEnabled = true
+                        hysteria2Bean.echConfig = it
+                    }
                 }
                 streamSettings.getObject("transportSettings")?.also { transportSettings ->
                     transportSettings.getString("password")?.also {
@@ -451,8 +458,13 @@ fun parseV2Ray5Outbound(outbound: JsonObject): List<AbstractBean> {
                             peerPreSharedKey = peer.getString("preshared_key") ?: peer.getString("presharedKey")
                             keepaliveInterval = peer.getInt("persistent_keepalive_interval") ?: peer.getInt("persistentKeepaliveInterval")
                             peer.getString("endpoint")?.also {
-                                serverAddress = it.substringBeforeLast(":").removePrefix("[").removeSuffix("]")
-                                serverPort = it.substringAfterLast(":").toIntOrNull() ?: return listOf()
+                                try {
+                                    val hostPort = Libexclavecore.splitHostPort(it)
+                                    serverAddress = hostPort.host
+                                    serverPort = hostPort.port
+                                } catch (_: Exception) {
+                                    return listOf()
+                                }
                             }
                         })
                     }

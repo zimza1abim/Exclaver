@@ -29,6 +29,7 @@ import org.jetbrains.annotations.NotNull;
 
 import io.nekohasekai.sagernet.fmt.AbstractBean;
 import io.nekohasekai.sagernet.fmt.KryoConverters;
+import io.nekohasekai.sagernet.ktx.NetsKt;
 import libexclavecore.Libexclavecore;
 
 public class JuicityBean extends AbstractBean {
@@ -45,6 +46,7 @@ public class JuicityBean extends AbstractBean {
     public String mtlsCertificatePrivateKey;
     public Boolean echEnabled;
     public String echConfig;
+    public String serverNameToVerify;
 
     @Override
     public void initializeDefaultValues() {
@@ -61,11 +63,12 @@ public class JuicityBean extends AbstractBean {
         if (mtlsCertificatePrivateKey == null) mtlsCertificatePrivateKey = "";
         if (echEnabled == null) echEnabled = false;
         if (echConfig == null) echConfig = "";
+        if (serverNameToVerify == null) serverNameToVerify = "";
     }
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(5);
+        output.writeInt(6);
         super.serialize(output);
         output.writeString(uuid);
         output.writeString(password);
@@ -80,6 +83,7 @@ public class JuicityBean extends AbstractBean {
         output.writeString(echConfig);
 
         output.writeBoolean(echEnabled);
+        output.writeString(serverNameToVerify);
     }
 
     @Override
@@ -115,11 +119,9 @@ public class JuicityBean extends AbstractBean {
         if (version >= 5) {
             echEnabled = input.readBoolean();
         }
-    }
-
-    @Override
-    public String network() {
-        return "udp";
+        if (version >= 6) {
+            serverNameToVerify = input.readString();
+        }
     }
 
     @Override
@@ -185,6 +187,9 @@ public class JuicityBean extends AbstractBean {
             return false;
         }
         if (!pinnedPeerCertificateSha256.isEmpty()) {
+            return false;
+        }
+        if (!NetsKt.listByLineOrComma(serverNameToVerify).isEmpty()) {
             return false;
         }
         return true;

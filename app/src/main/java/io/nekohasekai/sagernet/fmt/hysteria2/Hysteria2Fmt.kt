@@ -42,13 +42,11 @@ fun parseHysteria2(rawURL: String): Hysteria2Bean {
     val link = Libexclavecore.parseURL(url)
     return Hysteria2Bean().apply {
         name = link.fragment
-        serverAddress = link.host.ifEmpty { error("empty host") }
-        serverPorts = if (port.isNotEmpty() && port.isValidHysteriaMultiPort()) {
-            port
-        } else if (link.port > 0) {
-            link.port.toString()
-        } else {
-            "443"
+        serverAddress = link.host
+        serverPorts = when {
+            port.isNotEmpty() -> if (port.isValidHysteriaPort()) port else error("invalid port")
+            !link.hasPort() -> "443"
+            else -> link.port.toString()
         }
         link.queryParameter("mport")?.takeIf { it.isValidHysteriaMultiPort() }?.also {
             serverPorts = it
@@ -98,15 +96,16 @@ fun parseHysteria2(rawURL: String): Hysteria2Bean {
                 else -> error("unsupported obfs")
             }
         }
+        link.queryParameter("ech")?.also {
+            echEnabled = true
+            echConfig = it
+        }
     }
 }
 
 fun Hysteria2Bean.toUri(): String? {
     if (!serverPorts.isValidHysteriaPort()) {
         error("invalid port")
-    }
-    if (serverAddress.isEmpty()) {
-        error("empty server address")
     }
 
     val builder = Libexclavecore.newURL("hysteria2").apply {
@@ -128,7 +127,8 @@ fun Hysteria2Bean.toUri(): String? {
     // as `pinnedPeerCertificate[Chain|PublicKey]Sha256` is not exportable,
     // only add `allow_insecure=1` if `pinnedPeerCertificate[Chain|PublicKey]Sha256` is not used
     if (allowInsecure &&
-        pinnedPeerCertificateChainSha256.isEmpty() && pinnedPeerCertificatePublicKeySha256.isEmpty()) {
+        pinnedPeerCertificateChainSha256.isEmpty() && pinnedPeerCertificatePublicKeySha256.isEmpty()
+        && serverNameToVerify.listByLineOrComma().isEmpty()) {
         builder.addQueryParameter("insecure", "1")
     }
     if (pinnedPeerCertificateSha256.isNotEmpty()) {
@@ -140,6 +140,9 @@ fun Hysteria2Bean.toUri(): String? {
             error("empty obfs password")
         }
         builder.addQueryParameter("obfs-password", obfsPassword)
+    }
+    if (echEnabled && echConfig.isNotEmpty()) {
+        builder.addQueryParameter("ech", echConfig)
     }
     if (name.isNotEmpty()) {
         builder.fragment = name
