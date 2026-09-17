@@ -998,6 +998,7 @@ public class V2RayConfig {
         public String userKey;
         public String obfsMode;
         public String obfsHost;
+        public String obfsURI;
         public Integer version;
         public Boolean reuse;
         public String mode;
@@ -1317,6 +1318,7 @@ public class V2RayConfig {
         public Long hopInterval;
         public Long hopIntervalMin;
         public Long hopIntervalMax;
+        public Boolean disableStatelessReset;
         public Boolean omitMaxDatagramFrameSize;
         public Boolean chromeParrot;
 
