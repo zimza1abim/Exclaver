@@ -11,6 +11,9 @@
 
 package io.nekohasekai.sagernet.ui.profile
 
+import android.content.Context
+import android.content.res.ColorStateList
+import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
@@ -21,17 +24,22 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
+import android.widget.BaseAdapter
+import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.Toolbar
+import androidx.core.content.ContextCompat
+import androidx.core.view.GravityCompat
+import androidx.core.view.MenuCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.Key
@@ -54,6 +62,7 @@ import io.nekohasekai.sagernet.ui.profile.smartroute.SmartRouteConfigGenerator
 import io.nekohasekai.sagernet.ui.profile.smartroute.SmartRouteDomainNormalizer
 import io.nekohasekai.sagernet.ui.profile.smartroute.SmartRouteGeneratedConfig
 import io.nekohasekai.sagernet.ui.profile.smartroute.SmartRouteInputException
+import io.nekohasekai.sagernet.ui.profile.smartroute.SmartRouteWireGuardParser
 import java.io.OutputStreamWriter
 
 class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings),
@@ -83,6 +92,10 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
     private var profileSaveQueuedSilent = true
     private var profileStateVersion = 0L
 
+    /** Message of the last failed (silent) auto-save, or null when the editor matches the database. */
+    private var saveError: String? = null
+    private var toolbarInSelectionMode: Boolean? = null
+
     private val domainItems = ArrayList<String>()
     private val selectedDomains = LinkedHashSet<String>()
 
@@ -109,50 +122,54 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
     private data class SaveResult(
         val profileId: Long,
         val groupId: Long,
+        val contentChanged: Boolean,
+    )
+
+    private data class ProfileChoice(
+        val profile: ProxyEntity,
+        val domainCount: Int,
     )
 
     private lateinit var domainInput: EditText
     private lateinit var domainPreview: TextView
-    private lateinit var domainAdd: TextView
+    private lateinit var domainAdd: View
     private lateinit var domainListView: RecyclerView
+    private lateinit var filterBar: TextView
     private lateinit var emptyState: View
     private lateinit var emptyTitle: TextView
     private lateinit var emptySummary: TextView
-    private lateinit var saveProfileButton: ExtendedFloatingActionButton
+    private lateinit var emptyAction: Button
     private lateinit var status: TextView
+    private lateinit var statusRow: View
+    private lateinit var statusDot: View
+    private lateinit var actionButton: Button
+    private lateinit var settingsButton: View
+    private lateinit var defaultValue: TextView
+    private lateinit var bypassValue: TextView
     private lateinit var proxyStatus: TextView
     private lateinit var profileSelector: TextView
     private lateinit var domainAdapter: DomainAdapter
+
+    private val selectionBackCallback = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() = clearSelection()
+    }
 
     private val importFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri ?: return@registerForActivityResult
         val text = readText(uri) ?: return@registerForActivityResult
         when (importTarget) {
-            ImportTarget.DefaultConf -> {
-                defaultConf = text
-                defaultConfLabel = displayName(uri) ?: getString(R.string.smart_route_conf_source_file)
-                markChanged()
-                showMessage(R.string.smart_route_default_loaded)
-                refreshConfSheet()
-            }
-            ImportTarget.BypassConf -> {
-                bypassConf = text
-                bypassConfLabel = displayName(uri) ?: getString(R.string.smart_route_conf_source_file)
-                markChanged()
-                showMessage(R.string.smart_route_bypass_loaded)
-                refreshConfSheet()
-            }
-            ImportTarget.Domains -> {
-                try {
-                    setDomains(SmartRouteDomainNormalizer.normalizeLines(text), resetSelection = true)
-                    markChanged()
-                } catch (e: SmartRouteInputException) {
-                    showError(formatInputError(e))
-                }
-            }
+            ImportTarget.DefaultConf -> setConf(
+                default = true,
+                text = text,
+                label = displayName(uri) ?: getString(R.string.smart_route_conf_source_file),
+            )
+            ImportTarget.BypassConf -> setConf(
+                default = false,
+                text = text,
+                label = displayName(uri) ?: getString(R.string.smart_route_conf_source_file),
+            )
+            ImportTarget.Domains -> importDomains(text)
         }
-        generatedJson = ""
-        applyResponsiveState()
     }
 
     private val exportDomains = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
@@ -173,8 +190,8 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         toolbar.setTitle(R.string.smart_route)
-        toolbar.inflateMenu(R.menu.smart_route_menu)
         toolbar.setOnMenuItemClickListener(this)
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, selectionBackCallback)
 
         bindViews(view)
         setupDomainList()
@@ -193,7 +210,15 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
 
     override fun onResume() {
         super.onResume()
+        if (!SagerNet.started) clearPendingApply(requireContext())
         syncSelectedConfigurationProfile()
+        applyResponsiveState()
+    }
+
+    /** Called by [MainActivity] whenever the proxy service changes state. */
+    fun onServiceStateChanged() {
+        if (view == null) return
+        applyResponsiveState()
     }
 
     private fun bindViews(view: View) {
@@ -201,11 +226,18 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         domainPreview = view.findViewById(R.id.domain_preview)
         domainAdd = view.findViewById(R.id.domain_add)
         domainListView = view.findViewById(R.id.domain_list)
+        filterBar = view.findViewById(R.id.domain_filter_bar)
         emptyState = view.findViewById(R.id.empty_state)
         emptyTitle = emptyState.findViewById(R.id.empty_title)
         emptySummary = emptyState.findViewById(R.id.empty_summary)
-        saveProfileButton = view.findViewById(R.id.save_profile)
+        emptyAction = emptyState.findViewById(R.id.empty_action)
         status = view.findViewById(R.id.smart_route_status)
+        statusRow = view.findViewById(R.id.smart_route_status_row)
+        statusDot = view.findViewById(R.id.smart_route_status_dot)
+        actionButton = view.findViewById(R.id.smart_route_action)
+        settingsButton = view.findViewById(R.id.smart_route_settings_button)
+        defaultValue = view.findViewById(R.id.smart_route_default_value)
+        bypassValue = view.findViewById(R.id.smart_route_bypass_value)
         proxyStatus = view.findViewById(R.id.smart_route_proxy_status)
         profileSelector = view.findViewById(R.id.smart_route_profile_selector)
     }
@@ -213,17 +245,11 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
     private fun setupDomainList() {
         domainAdapter = DomainAdapter(
             onClick = { domain ->
-                toggleSelected(domain)
+                if (selectedDomains.isEmpty()) editDomain(domain) else toggleSelected(domain)
             },
             onLongClick = { domain ->
                 toggleSelected(domain)
                 true
-            },
-            onEdit = { domain ->
-                selectedDomains.clear()
-                selectedDomains.add(domain)
-                renderDomainList()
-                editDomain(domain)
             },
             onDelete = { domain ->
                 removeDomain(domain)
@@ -231,11 +257,6 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         )
         domainListView.layoutManager = LinearLayoutManager(requireContext())
         domainListView.adapter = domainAdapter
-        domainListView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                if (dy > 0) saveProfileButton.shrink() else if (dy < 0) saveProfileButton.extend()
-            }
-        })
     }
 
     private fun wireActions() {
@@ -254,7 +275,17 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
             override fun afterTextChanged(s: Editable?) = Unit
         })
         profileSelector.setOnClickListener { showProfilePicker() }
-        saveProfileButton.setOnClickListener { saveProfile(silent = false) }
+        settingsButton.setOnClickListener { showConfSheet() }
+        requireView().findViewById<View>(R.id.smart_route_default_row).setOnClickListener { showConfSheet() }
+        requireView().findViewById<View>(R.id.smart_route_bypass_row).setOnClickListener { showConfSheet() }
+        requireView().findViewById<View>(R.id.smart_route_proxy_row).setOnClickListener { openProxySettings() }
+        statusRow.setOnClickListener { onStatusClicked() }
+        actionButton.setOnClickListener { onActionClicked() }
+        filterBar.setOnClickListener {
+            domainFilter = ""
+            renderDomainList()
+        }
+        emptyAction.setOnClickListener { showConfSheet() }
     }
 
     override fun onMenuItemClick(item: MenuItem): Boolean {
@@ -266,6 +297,7 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
             R.id.action_smart_route_delete_profile -> deleteCurrentProfile()
             R.id.action_smart_route_setup -> showConfSheet()
             R.id.action_smart_route_search -> showSearchDialog()
+            R.id.action_smart_route_select_visible -> selectVisible()
             R.id.action_smart_route_delete_selected -> removeSelectedDomains()
             R.id.action_smart_route_import -> {
                 importTarget = ImportTarget.Domains
@@ -294,20 +326,22 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
                 SagerNet.trySetPrimaryClip(json)
                 showMessage(R.string.smart_route_json_copied)
             }
-            R.id.action_smart_route_proxy_settings -> (requireActivity() as MainActivity).displayFragmentWithId(R.id.nav_settings)
-            R.id.action_smart_route_clear_all -> {
-                setDomains(emptyList(), resetSelection = true)
-                markChanged()
-            }
+            R.id.action_smart_route_proxy_settings -> openProxySettings()
+            R.id.action_smart_route_clear_all -> confirmClearAllDomains()
+            R.id.action_smart_route_advanced -> return false
             else -> return false
         }
         return true
     }
 
+    private fun openProxySettings() {
+        (requireActivity() as MainActivity).displayFragmentWithId(R.id.nav_settings)
+    }
+
+    // ---- Route conf sheet ------------------------------------------------------------------
+
     override fun onSmartRouteConfDone(profileName: String, dnsServer: String): Boolean {
-        profileNameValue = profileName.trim().ifBlank { getString(R.string.smart_route_default_profile_name) }
-        this.dnsServer = dnsServer.trim().ifBlank { SmartRouteConfigGenerator.DEFAULT_DNS_SERVER }
-        markChanged()
+        applySheetFields(profileName, dnsServer)
         return if (hasCompleteConf()) {
             true
         } else {
@@ -316,46 +350,113 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         }
     }
 
+    override fun onSmartRouteConfDismissed(profileName: String, dnsServer: String) {
+        applySheetFields(profileName, dnsServer)
+    }
+
+    private fun applySheetFields(profileName: String, dnsServer: String) {
+        val newName = profileName.trim().ifBlank { getString(R.string.smart_route_default_profile_name) }
+        val newDns = dnsServer.trim().ifBlank { SmartRouteConfigGenerator.DEFAULT_DNS_SERVER }
+        if (newName == profileNameValue && newDns == this.dnsServer) return
+        profileNameValue = newName
+        this.dnsServer = newDns
+        markChanged()
+    }
+
     override fun onSmartRouteConfFile(default: Boolean) {
         importTarget = if (default) ImportTarget.DefaultConf else ImportTarget.BypassConf
         startFilesForResult(importFile, "*/*")
     }
 
-    override fun onSmartRouteConfClipboard(default: Boolean) = pasteConf(default)
+    override fun onSmartRouteConfClipboard(default: Boolean) {
+        val text = SagerNet.getClipboardText()
+        if (text.isEmpty()) {
+            showMessage(R.string.clipboard_empty)
+            return
+        }
+        setConf(default, text, getString(R.string.smart_route_conf_source_clipboard))
+    }
 
     override fun onSmartRouteConfEdit(default: Boolean) {
+        editConf(default, if (default) defaultConf else bypassConf)
+    }
+
+    private fun editConf(default: Boolean, value: String) {
         editTextDialog(
             if (default) R.string.smart_route_default_conf else R.string.smart_route_bypass_conf,
-            if (default) defaultConf else bypassConf,
-        ) {
+            value,
+        ) { text ->
+            if (text.isBlank()) {
+                onSmartRouteConfClear(default)
+                return@editTextDialog
+            }
+            val error = validateConf(text)
+            if (error != null) {
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(R.string.error_title)
+                    .setMessage(error + "\n\n" + getString(R.string.smart_route_conf_not_loaded))
+                    .setPositiveButton(R.string.smart_route_invalid_lines_edit_again) { _, _ -> editConf(default, text) }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+                return@editTextDialog
+            }
+            setConf(default, text, getString(R.string.smart_route_conf_source_manual))
+        }
+    }
+
+    /** Validates a WireGuard conf up-front so a broken conf never reaches the (silent) auto-save. */
+    private fun setConf(default: Boolean, text: String, label: String) {
+        val error = validateConf(text)
+        if (error != null) {
+            showError(error + "\n\n" + getString(R.string.smart_route_conf_not_loaded))
+            return
+        }
+        if (default) {
+            defaultConf = text
+            defaultConfLabel = label
+        } else {
+            bypassConf = text
+            bypassConfLabel = label
+        }
+        generatedJson = ""
+        markChanged()
+        refreshConfSheet()
+        showMessage(if (default) R.string.smart_route_default_loaded else R.string.smart_route_bypass_loaded)
+    }
+
+    private fun validateConf(text: String): String? = try {
+        SmartRouteWireGuardParser.parse(text)
+        null
+    } catch (e: SmartRouteInputException) {
+        formatInputError(e)
+    } catch (_: Exception) {
+        getString(R.string.smart_route_error_invalid_wireguard_conf)
+    }
+
+    override fun onSmartRouteConfClear(default: Boolean) {
+        val previousConf = if (default) defaultConf else bypassConf
+        val previousLabel = if (default) defaultConfLabel else bypassConfLabel
+        if (previousConf.isBlank()) return
+        fun apply(conf: String, label: String) {
             if (default) {
-                defaultConf = it
-                defaultConfLabel = getString(R.string.smart_route_conf_source_manual)
+                defaultConf = conf
+                defaultConfLabel = label
             } else {
-                bypassConf = it
-                bypassConfLabel = getString(R.string.smart_route_conf_source_manual)
+                bypassConf = conf
+                bypassConfLabel = label
             }
             generatedJson = ""
             markChanged()
             refreshConfSheet()
         }
-    }
-
-    override fun onSmartRouteConfClear(default: Boolean) {
-        if (default) {
-            defaultConf = ""
-            defaultConfLabel = ""
-        } else {
-            bypassConf = ""
-            bypassConfLabel = ""
-        }
-        generatedJson = ""
-        markChanged()
-        refreshConfSheet()
-        showMessage(R.string.smart_route_cleared)
+        apply("", "")
+        snackbar(if (default) R.string.smart_route_default_cleared else R.string.smart_route_bypass_cleared)
+            .setAction(R.string.smart_route_undo) { apply(previousConf, previousLabel) }
+            .show()
     }
 
     private fun showConfSheet() {
+        if (childFragmentManager.findFragmentByTag("smart_route_conf") != null) return
         SmartRouteConfBottomSheet.newInstance(
             profileName = profileNameValue,
             dnsServer = dnsServer,
@@ -365,6 +466,18 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
             bypassLabel = bypassConfLabel,
         ).show(childFragmentManager, "smart_route_conf")
     }
+
+    private fun refreshConfSheet() {
+        (childFragmentManager.findFragmentByTag("smart_route_conf") as? SmartRouteConfBottomSheet)
+            ?.updateConfStatus(
+                defaultReady = defaultConf.isNotBlank(),
+                bypassReady = bypassConf.isNotBlank(),
+                defaultLabel = defaultConfLabel,
+                bypassLabel = bypassConfLabel,
+            )
+    }
+
+    // ---- Domains ---------------------------------------------------------------------------
 
     private fun showSearchDialog() {
         val edit = EditText(requireContext()).apply {
@@ -387,36 +500,6 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
             .show()
     }
 
-    private fun pasteConf(default: Boolean) {
-        val text = SagerNet.getClipboardText()
-        if (text.isEmpty()) {
-            showMessage(R.string.clipboard_empty)
-            return
-        }
-        if (default) {
-            defaultConf = text
-            defaultConfLabel = getString(R.string.smart_route_conf_source_clipboard)
-            showMessage(R.string.smart_route_default_loaded)
-        } else {
-            bypassConf = text
-            bypassConfLabel = getString(R.string.smart_route_conf_source_clipboard)
-            showMessage(R.string.smart_route_bypass_loaded)
-        }
-        generatedJson = ""
-        markChanged()
-        refreshConfSheet()
-    }
-
-    private fun refreshConfSheet() {
-        (childFragmentManager.findFragmentByTag("smart_route_conf") as? SmartRouteConfBottomSheet)
-            ?.updateConfStatus(
-                defaultReady = defaultConf.isNotBlank(),
-                bypassReady = bypassConf.isNotBlank(),
-                defaultLabel = defaultConfLabel,
-                bypassLabel = bypassConfLabel,
-            )
-    }
-
     private fun normalizeDomains(sort: Boolean) {
         try {
             val normalized = SmartRouteDomainNormalizer.normalizeLines(
@@ -431,39 +514,90 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
     }
 
     private fun addDomainsFromInput() {
-        try {
-            val current = SmartRouteDomainNormalizer.normalizeLines(domainItems.joinToString("\n"))
-            val incoming = SmartRouteDomainNormalizer.normalizeLines(domainInput.text?.toString().orEmpty())
-            if (incoming.isEmpty()) throw SmartRouteInputException(R.string.smart_route_error_domain_empty)
-            val merged = (current + incoming).distinct()
-            val added = merged.size - current.size
-            setDomains(merged)
-            domainInput.setText("")
-            if (added > 0 && domainFilter.isNotBlank()) {
-                domainFilter = ""
+        val parsed = SmartRouteDomainNormalizer.parseLenient(domainInput.text?.toString().orEmpty())
+        if (parsed.domains.isEmpty()) {
+            if (parsed.invalid.isEmpty()) {
+                showError(getString(R.string.smart_route_error_domain_empty))
+            } else {
+                showError(getString(R.string.smart_route_error_invalid_domain) + "\n" + parsed.invalid.joinToString("\n"))
+            }
+            return
+        }
+        val current = domainItems.toList()
+        val merged = (current + parsed.domains).distinct()
+        val added = merged.size - current.size
+        setDomains(merged)
+        // Keep the unrecognized entries in the input so they can be fixed instead of silently lost.
+        domainInput.setText(parsed.invalid.joinToString(" "))
+        domainInput.setSelection(domainInput.text?.length ?: 0)
+        if (added > 0 && domainFilter.isNotBlank()) {
+            domainFilter = ""
+            renderDomainList()
+        }
+        generatedJson = ""
+        markChanged()
+        val skipped = parsed.domains.size - added
+        showMessage(
+            when {
+                parsed.invalid.isNotEmpty() -> getString(R.string.smart_route_domains_added_with_invalid, added, parsed.invalid.size)
+                added == 0 -> getString(R.string.smart_route_domains_already_exists)
+                skipped > 0 -> getString(R.string.smart_route_domains_added_with_duplicates, added, skipped)
+                else -> getString(R.string.smart_route_domains_added, added)
+            },
+        )
+    }
+
+    private fun importDomains(text: String) {
+        val parsed = SmartRouteDomainNormalizer.parseLenient(text)
+        if (parsed.domains.isEmpty()) {
+            showError(
+                if (parsed.invalid.isEmpty()) {
+                    getString(R.string.smart_route_error_domain_empty)
+                } else {
+                    getString(R.string.smart_route_error_invalid_domain) + "\n" + parsed.invalid.take(20).joinToString("\n")
+                },
+            )
+            return
+        }
+        val before = domainItems.toList()
+        val merged = (before + parsed.domains).distinct()
+        replaceDomainsWithUndo(
+            merged,
+            getString(R.string.smart_route_domains_imported, merged.size - before.size, parsed.invalid.size),
+        )
+    }
+
+    /** Applies a domain list change and offers an undo snackbar restoring the previous list. */
+    private fun replaceDomainsWithUndo(newDomains: List<String>, message: String) {
+        val before = domainItems.toList()
+        val selectionBefore = selectedDomains.toList()
+        setDomains(newDomains)
+        generatedJson = ""
+        markChanged()
+        snackbar(message)
+            .setAction(R.string.smart_route_undo) {
+                setDomains(before, resetSelection = true)
+                selectedDomains.addAll(selectionBefore.filter { it in before })
+                generatedJson = ""
+                markChanged()
                 renderDomainList()
             }
-            generatedJson = ""
-            markChanged()
-            if (added == 0) {
-                showMessage(R.string.smart_route_domains_already_exists)
-            } else {
-                val skipped = incoming.size - added
-                showMessage(
-                    if (skipped > 0) {
-                        getString(R.string.smart_route_domains_added_with_duplicates, added, skipped)
-                    } else {
-                        getString(R.string.smart_route_domains_added, added)
-                    },
-                )
-            }
-        } catch (e: SmartRouteInputException) {
-            showError(formatInputError(e))
-        }
+            .show()
     }
 
     private fun toggleSelected(domain: String) {
         if (domain in selectedDomains) selectedDomains.remove(domain) else selectedDomains.add(domain)
+        renderDomainList()
+    }
+
+    private fun selectVisible() {
+        selectedDomains.addAll(filteredDomains())
+        renderDomainList()
+    }
+
+    private fun clearSelection() {
+        if (selectedDomains.isEmpty()) return
+        selectedDomains.clear()
         renderDomainList()
     }
 
@@ -472,17 +606,38 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
             showMessage(R.string.smart_route_no_selected_domains)
             return
         }
-        setDomains(domainItems.filterNot { it in selectedDomains }, resetSelection = true)
-        generatedJson = ""
-        markChanged()
+        val removed = selectedDomains.toSet()
+        selectedDomains.clear()
+        replaceDomainsWithUndo(
+            domainItems.filterNot { it in removed },
+            getString(R.string.smart_route_domains_removed, removed.size),
+        )
     }
 
     private fun removeDomain(domain: String) {
         if (domain !in domainItems) return
         selectedDomains.remove(domain)
-        setDomains(domainItems.filterNot { it == domain })
-        generatedJson = ""
-        markChanged()
+        replaceDomainsWithUndo(
+            domainItems.filterNot { it == domain },
+            getString(R.string.smart_route_domain_removed, domain),
+        )
+    }
+
+    private fun confirmClearAllDomains() {
+        if (domainItems.isEmpty()) {
+            showMessage(R.string.smart_route_no_domains)
+            return
+        }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.smart_route_clear_all_title)
+            .setMessage(getString(R.string.smart_route_clear_all_message, domainItems.size))
+            .setPositiveButton(R.string.smart_route_delete_profile_confirm) { _, _ ->
+                val count = domainItems.size
+                selectedDomains.clear()
+                replaceDomainsWithUndo(emptyList(), getString(R.string.smart_route_domains_removed, count))
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun setDomains(values: List<String>, resetSelection: Boolean = false) {
@@ -495,14 +650,30 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
     private fun renderDomainList() {
         if (!::domainAdapter.isInitialized) return
         val visibleDomains = filteredDomains()
-        domainAdapter.submitList(visibleDomains)
+        val selectionMode = selectedDomains.isNotEmpty()
+        domainAdapter.submitList(visibleDomains.map { DomainRow(it, it in selectedDomains, selectionMode) })
+
+        filterBar.visibility = if (domainFilter.isBlank()) View.GONE else View.VISIBLE
+        if (domainFilter.isNotBlank()) {
+            filterBar.text = getString(R.string.smart_route_filter_bar, domainFilter, visibleDomains.size, domainItems.size)
+        }
+
         emptyState.visibility = if (visibleDomains.isEmpty()) View.VISIBLE else View.GONE
-        if (domainItems.isEmpty()) {
-            emptyTitle.setText(R.string.smart_route_empty_title)
-            emptySummary.setText(R.string.smart_route_empty_summary)
-        } else {
-            emptyTitle.setText(R.string.smart_route_search_empty_title)
-            emptySummary.setText(R.string.smart_route_search_empty_summary)
+        emptyAction.visibility = View.GONE
+        when {
+            domainItems.isNotEmpty() -> {
+                emptyTitle.setText(R.string.smart_route_search_empty_title)
+                emptySummary.setText(R.string.smart_route_search_empty_summary)
+            }
+            !hasCompleteConf() -> {
+                emptyTitle.setText(R.string.smart_route_empty_title)
+                emptySummary.setText(R.string.smart_route_empty_summary_needs_conf)
+                emptyAction.visibility = View.VISIBLE
+            }
+            else -> {
+                emptyTitle.setText(R.string.smart_route_empty_title)
+                emptySummary.setText(R.string.smart_route_empty_summary)
+            }
         }
         applyResponsiveState()
     }
@@ -515,9 +686,9 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         }
     }
 
-    private fun editDomain(domain: String) {
+    private fun editDomain(domain: String, initial: String = domain) {
         val edit = EditText(requireContext()).apply {
-            setText(domain)
+            setText(initial)
             setSingleLine(true)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         }
@@ -525,25 +696,102 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
             .setTitle(R.string.smart_route_edit_domain)
             .setView(edit)
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                try {
-                    val replacement = SmartRouteDomainNormalizer.normalizeLines(edit.text.toString())
-                    if (replacement.isEmpty()) throw SmartRouteInputException(R.string.smart_route_error_domain_empty)
-                    val updated = domainItems.flatMap { if (it == domain) replacement else listOf(it) }.distinct()
-                    selectedDomains.remove(domain)
-                    setDomains(updated)
-                    generatedJson = ""
-                    markChanged()
-                } catch (e: SmartRouteInputException) {
-                    showError(formatInputError(e))
+                val text = edit.text.toString()
+                val parsed = SmartRouteDomainNormalizer.parseLenient(text)
+                if (parsed.invalid.isNotEmpty() || parsed.domains.isEmpty()) {
+                    MaterialAlertDialogBuilder(requireContext())
+                        .setTitle(R.string.error_title)
+                        .setMessage(
+                            if (parsed.invalid.isEmpty()) {
+                                getString(R.string.smart_route_error_domain_empty)
+                            } else {
+                                getString(R.string.smart_route_error_invalid_domain) + "\n" + parsed.invalid.joinToString("\n")
+                            },
+                        )
+                        .setPositiveButton(R.string.smart_route_invalid_lines_edit_again) { _, _ -> editDomain(domain, text) }
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show()
+                    return@setPositiveButton
                 }
+                val updated = domainItems.flatMap { if (it == domain) parsed.domains else listOf(it) }.distinct()
+                selectedDomains.remove(domain)
+                setDomains(updated)
+                generatedJson = ""
+                markChanged()
             }
+            .setNeutralButton(R.string.smart_route_domain_delete_inline) { _, _ -> removeDomain(domain) }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 
-    private fun generateOrShow(updateDomainText: Boolean) = generateSmartRoute(updateDomainText, showErrors = true)
+    private fun editDomainsAdvanced(initial: String = domainItems.joinToString("\n")) {
+        editTextDialog(R.string.smart_route_advanced_domain_edit, initial) { text ->
+            val parsed = SmartRouteDomainNormalizer.parseLenient(text)
+            if (parsed.invalid.isEmpty()) {
+                setDomains(parsed.domains, resetSelection = true)
+                generatedJson = ""
+                markChanged()
+                return@editTextDialog
+            }
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.smart_route_invalid_lines_title)
+                .setMessage(
+                    getString(
+                        R.string.smart_route_invalid_lines_message,
+                        parsed.invalid.size,
+                        parsed.invalid.take(20).joinToString("\n"),
+                    ),
+                )
+                .setPositiveButton(R.string.smart_route_invalid_lines_edit_again) { _, _ -> editDomainsAdvanced(text) }
+                .setNeutralButton(R.string.smart_route_invalid_lines_keep_valid) { _, _ ->
+                    setDomains(parsed.domains, resetSelection = true)
+                    generatedJson = ""
+                    markChanged()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+    }
 
-    private fun generateSmartRoute(updateDomainText: Boolean, showErrors: Boolean): SmartRouteGeneratedConfig? = try {
+    private fun updateDomainPreview() {
+        val text = domainInput.text?.toString().orEmpty()
+        if (text.isBlank()) {
+            domainPreview.setText(R.string.smart_route_domain_preview_empty)
+            return
+        }
+        val parsed = SmartRouteDomainNormalizer.parseLenient(text)
+        domainPreview.text = when {
+            parsed.domains.isEmpty() && parsed.invalid.isEmpty() -> getString(R.string.smart_route_domain_preview_empty)
+            parsed.domains.isEmpty() -> getString(R.string.smart_route_domain_preview_invalid, parsed.invalid.first())
+            parsed.invalid.isNotEmpty() -> getString(
+                R.string.smart_route_domain_preview_mixed,
+                parsed.domains.size,
+                parsed.invalid.size,
+                parsed.invalid.first(),
+            )
+            parsed.domains.size == 1 -> getString(R.string.smart_route_domain_preview_one, parsed.domains.first())
+            else -> getString(R.string.smart_route_domain_preview_many, parsed.domains.size, parsed.domains.first())
+        }
+    }
+
+    // ---- Generate / save -------------------------------------------------------------------
+
+    private fun generateOrShow(updateDomainText: Boolean): SmartRouteGeneratedConfig? {
+        return when (val outcome = generateSmartRoute(updateDomainText)) {
+            is GenerateOutcome.Success -> outcome.config
+            is GenerateOutcome.Failure -> {
+                showError(outcome.message)
+                null
+            }
+        }
+    }
+
+    private sealed class GenerateOutcome {
+        class Success(val config: SmartRouteGeneratedConfig) : GenerateOutcome()
+        class Failure(val message: String) : GenerateOutcome()
+    }
+
+    private fun generateSmartRoute(updateDomainText: Boolean): GenerateOutcome = try {
         val result = SmartRouteConfigGenerator.generate(
             defaultConf = defaultConf,
             bypassConf = bypassConf,
@@ -552,15 +800,20 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         )
         generatedJson = result.json
         if (updateDomainText) setDomains(result.domains)
-        result
+        GenerateOutcome.Success(result)
     } catch (e: SmartRouteInputException) {
-        if (showErrors) showError(formatInputError(e))
-        null
+        GenerateOutcome.Failure(formatInputError(e))
     } catch (_: Exception) {
-        if (showErrors) showError(getString(R.string.smart_route_error_invalid_wireguard_conf))
-        null
+        GenerateOutcome.Failure(getString(R.string.smart_route_error_invalid_wireguard_conf))
     }
 
+    /**
+     * Saves the editor into its Configuration profile.
+     *
+     * Silent saves (auto-save while editing) only persist; they never change the profile in use
+     * and never reload the service. Explicit saves select the profile and apply it to a running
+     * connection.
+     */
     private fun saveProfile(silent: Boolean) {
         if (profileSaveInFlight) {
             profileSaveQueued = true
@@ -569,7 +822,15 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         }
         profileSaveQueuedSilent = true
         ensureSmartRouteRuntimeDefaults()
-        val result = generateSmartRoute(updateDomainText = true, showErrors = !silent) ?: return
+        val result = when (val outcome = generateSmartRoute(updateDomainText = true)) {
+            is GenerateOutcome.Success -> outcome.config
+            is GenerateOutcome.Failure -> {
+                saveError = outcome.message
+                if (!silent) showError(outcome.message)
+                applyResponsiveState()
+                return
+            }
+        }
         val snapshot = SaveSnapshot(
             targetProfileId = managedProfileId,
             stateVersion = profileStateVersion,
@@ -584,6 +845,7 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         )
         val prefs = smartRoutePrefs()
         val smartRouteGroupName = getString(R.string.smart_route_group_name)
+        val saveFailedMessage = getString(R.string.smart_route_save_failed)
         profileSaveInFlight = true
         runOnDefaultDispatcher {
             val saved = runCatching {
@@ -598,6 +860,7 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
                 val existingProfile = snapshot.targetProfileId
                     .takeIf { it > 0L }
                     ?.let { ProfileManager.getProfile(it) }
+                val previousContent = existingProfile?.configBean?.content
                 val profile = if (existingProfile != null) {
                     val oldGroupId = existingProfile.groupId
                     existingProfile.apply {
@@ -630,19 +893,20 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
                     .putString("${profile.id}.domains", snapshot.domains.joinToString("\n"))
                     .putString("${profile.id}.json", snapshot.json)
                     .commit()
-                SaveResult(profile.id, groupId)
+                SaveResult(profile.id, groupId, previousContent != snapshot.json)
             }
             onMainDispatcher {
                 profileSaveInFlight = false
                 saved.onFailure {
-                    if (!silent) showError(getString(R.string.smart_route_save_failed))
+                    saveError = it.message?.let { detail -> "$saveFailedMessage\n$detail" } ?: saveFailedMessage
+                    if (!silent) showError(saveFailedMessage)
+                    if (view != null) applyResponsiveState()
                 }.onSuccess { saveResult ->
                     if (snapshot.stateVersion != profileStateVersion) {
                         return@onSuccess
                     }
                     managedProfileId = saveResult.profileId
-                    DataStore.selectedProxy = saveResult.profileId
-                    DataStore.selectedGroup = saveResult.groupId
+                    saveError = null
                     prefs.edit()
                         .putLong("manager.groupId", saveResult.groupId)
                         .putLong("manager.activeProfileId", saveResult.profileId)
@@ -657,7 +921,15 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
                         .remove("draft.json")
                         .commit()
                     hasUnsavedChanges = false
-                    if (!silent) {
+                    if (silent) {
+                        if (saveResult.contentChanged && isRunningProfile(saveResult.profileId)) {
+                            prefs.edit().putBoolean(pendingApplyKey(saveResult.profileId), true).commit()
+                        }
+                    } else {
+                        DataStore.selectedProxy = saveResult.profileId
+                        DataStore.selectedGroup = saveResult.groupId
+                        markSelectedProxySeen()
+                        clearPendingApply(requireContext())
                         if (SagerNet.started) {
                             SagerNet.reloadService()
                             showMessage(R.string.smart_route_saved_reloaded)
@@ -677,15 +949,42 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         }
     }
 
+    private fun onActionClicked() {
+        if (!hasCompleteConf()) showConfSheet() else saveProfile(silent = false)
+    }
+
+    private fun onStatusClicked() {
+        val error = saveError
+        when {
+            !hasCompleteConf() -> showConfSheet()
+            error != null -> MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.smart_route_save_failed_title)
+                .setMessage(error)
+                .setPositiveButton(R.string.smart_route_button_retry_save) { _, _ -> saveProfile(silent = false) }
+                .setNeutralButton(R.string.smart_route_menu_connection) { _, _ -> showConfSheet() }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+            currentHeaderState().actionRes != null -> onActionClicked()
+        }
+    }
+
+    // ---- Loading / restoring ---------------------------------------------------------------
+
     private fun loadManagedSmartRoute() {
         val prefs = smartRoutePrefs()
         val storedActiveProfileId = prefs.getLong("manager.activeProfileId", 0L)
-        if (storedActiveProfileId <= 0L && loadStoredSmartRouteState("draft")) return
+        if (storedActiveProfileId <= 0L && loadStoredSmartRouteState("draft")) {
+            markSelectedProxySeen()
+            return
+        }
 
-        managedProfileId = DataStore.selectedProxy
-            .takeIf { it > 0L && isSmartRouteProfile(it) }
-            ?: storedActiveProfileId.takeIf { it > 0L }
+        // Follow the profile picked in Configuration only when it changed since we last looked;
+        // otherwise reopen the profile that was being edited.
+        managedProfileId = selectedProxyChangedSinceSeen()
+            ?: storedActiveProfileId.takeIf { it > 0L && ProfileManager.getProfile(it) != null }
+            ?: DataStore.selectedProxy.takeIf { it > 0L && isSmartRouteProfile(it) }
             ?: prefs.getLong("manager.profileId", 0L)
+        markSelectedProxySeen()
         if (managedProfileId <= 0L || ProfileManager.getProfile(managedProfileId) == null) {
             managedProfileId = prefs.all.keys
                 .mapNotNull { key -> key.substringBefore(".json").toLongOrNull() }
@@ -714,7 +1013,7 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         generatedJson = prefs.getString("${managedProfileId}.json", "").orEmpty()
         val savedDomains = prefs.getString("${managedProfileId}.domains", "").orEmpty()
         if (savedDomains.isNotBlank()) {
-            setDomains(SmartRouteDomainNormalizer.normalizeLines(savedDomains), resetSelection = true)
+            setDomains(SmartRouteDomainNormalizer.parseLenient(savedDomains).domains, resetSelection = true)
         }
         if (!hasCompleteConf() || domainItems.isEmpty()) {
             extractSmartRouteState(managedProfile?.configBean?.content.orEmpty())?.let {
@@ -724,13 +1023,23 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         }
     }
 
+    private fun selectedProxyChangedSinceSeen(): Long? {
+        val selected = DataStore.selectedProxy
+        val seen = smartRoutePrefs().getLong("manager.lastSeenSelectedProxy", 0L)
+        return selected.takeIf { it > 0L && it != seen && isSmartRouteProfile(it) }
+    }
+
+    private fun markSelectedProxySeen() {
+        smartRoutePrefs().edit().putLong("manager.lastSeenSelectedProxy", DataStore.selectedProxy).commit()
+    }
+
     private fun syncSelectedConfigurationProfile() {
-        if (managedProfileId <= 0L) return
-        val selectedProfileId = DataStore.selectedProxy
-            .takeIf { it > 0L && it != managedProfileId && isSmartRouteProfile(it) }
-            ?: return
+        val selectedProfileId = selectedProxyChangedSinceSeen()
+        markSelectedProxySeen()
+        if (selectedProfileId == null || selectedProfileId == managedProfileId) return
+        if (hasUnsavedDraft() || saveError != null) return
         val profile = ProfileManager.getProfile(selectedProfileId) ?: return
-        loadProfileIntoEditor(profile, announce = false)
+        loadProfileIntoEditor(profile)
     }
 
     private fun loadProfileContentState(profile: ProxyEntity): Boolean {
@@ -787,7 +1096,7 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
             ?: SmartRouteConfigGenerator.DEFAULT_DNS_SERVER
         generatedJson = prefs.getString("$prefix.json", "").orEmpty()
         setDomains(
-            if (storedDomains.isBlank()) emptyList() else SmartRouteDomainNormalizer.normalizeLines(storedDomains),
+            if (storedDomains.isBlank()) emptyList() else SmartRouteDomainNormalizer.parseLenient(storedDomains).domains,
             resetSelection = true,
         )
         return true
@@ -869,44 +1178,116 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         return lines.joinToString("\n")
     }
 
+    // ---- Header / toolbar state ------------------------------------------------------------
+
+    private fun isRunningProfile(profileId: Long): Boolean {
+        if (!SagerNet.started || profileId <= 0L) return false
+        val running = DataStore.currentProfile.takeIf { it > 0L } ?: DataStore.selectedProxy
+        return running == profileId
+    }
+
+    private fun needsApply(): Boolean {
+        return managedProfileId > 0L &&
+            isRunningProfile(managedProfileId) &&
+            smartRoutePrefs().getBoolean(pendingApplyKey(managedProfileId), false)
+    }
+
+    private enum class HeaderState(
+        val statusRes: Int,
+        val actionRes: Int?,
+        val colorRes: Int,
+    ) {
+        NotConfigured(R.string.smart_route_not_configured, R.string.smart_route_action_setup, R.color.smart_route_status_error),
+        MissingDefault(R.string.smart_route_status_missing_default, R.string.smart_route_action_setup, R.color.smart_route_status_error),
+        MissingBypass(R.string.smart_route_status_missing_bypass, R.string.smart_route_action_setup, R.color.smart_route_status_error),
+        Draft(R.string.smart_route_draft_summary, R.string.smart_route_action_save, R.color.smart_route_status_pending),
+        SaveFailed(R.string.smart_route_status_save_failed, R.string.smart_route_button_retry_save, R.color.smart_route_status_error),
+        Unsaved(R.string.smart_route_save_state_unsaved, R.string.smart_route_action_save, R.color.smart_route_status_pending),
+        PendingApply(R.string.smart_route_status_pending_apply, R.string.smart_route_action_apply, R.color.smart_route_status_pending),
+        NotInUse(R.string.smart_route_status_not_selected, R.string.smart_route_action_use, R.color.smart_route_status_idle),
+        Applied(R.string.smart_route_status_applied, null, R.color.smart_route_status_ok),
+        SavedIdle(R.string.smart_route_status_saved_idle, null, R.color.smart_route_status_ok),
+    }
+
+    private fun currentHeaderState(): HeaderState {
+        val saved = managedProfileId > 0L
+        return when {
+            defaultConf.isBlank() && bypassConf.isBlank() -> HeaderState.NotConfigured
+            defaultConf.isBlank() -> HeaderState.MissingDefault
+            bypassConf.isBlank() -> HeaderState.MissingBypass
+            !saved -> HeaderState.Draft
+            saveError != null -> HeaderState.SaveFailed
+            hasUnsavedChanges && !profileSaveInFlight -> HeaderState.Unsaved
+            needsApply() -> HeaderState.PendingApply
+            DataStore.selectedProxy != managedProfileId -> HeaderState.NotInUse
+            isRunningProfile(managedProfileId) -> HeaderState.Applied
+            else -> HeaderState.SavedIdle
+        }
+    }
+
     private fun applyResponsiveState() {
-        val configured = hasCompleteConf() && managedProfileId > 0L && ProfileManager.getProfile(managedProfileId) != null
-        status.setText(
-            when {
-                configured -> R.string.smart_route_configured_summary
-                hasUnsavedDraft() -> R.string.smart_route_draft_summary
-                else -> R.string.smart_route_not_configured
-            },
-        )
+        if (!::actionButton.isInitialized) return
+        val state = currentHeaderState()
+        status.setText(state.statusRes)
+        statusDot.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), state.colorRes))
+        if (state.actionRes == null) {
+            actionButton.visibility = View.GONE
+        } else {
+            actionButton.visibility = View.VISIBLE
+            actionButton.setText(state.actionRes)
+        }
+        statusRow.isClickable = state != HeaderState.Applied && state != HeaderState.SavedIdle
+
+        defaultValue.text = confChipLabel(defaultConf, defaultConfLabel)
+        bypassValue.text = confChipLabel(bypassConf, bypassConfLabel)
         proxyStatus.text = currentProxyStatus()
         val profileName = profileNameValue.ifBlank { getString(R.string.smart_route_default_profile_name) }
-        profileSelector.text = getString(
-            if (managedProfileId > 0L) R.string.smart_route_current_profile_named else R.string.smart_route_draft_profile_named,
-            profileName,
-        )
-
-        val canSave = hasCompleteConf()
-        saveProfileButton.isEnabled = canSave
-        saveProfileButton.text = getString(
-            when {
-                managedProfileId <= 0L -> R.string.smart_route_save_new_profile
-                hasUnsavedChanges -> R.string.smart_route_save_changes
-                else -> R.string.smart_route_save_profile
-            },
-        )
-
-        toolbar.menu.findItem(R.id.action_smart_route_delete_selected)?.isVisible = selectedDomains.isNotEmpty()
-        toolbar.menu.findItem(R.id.action_smart_route_duplicate_profile)?.isEnabled = hasCompleteConf()
-        toolbar.menu.findItem(R.id.action_smart_route_delete_profile)?.isEnabled = managedProfileId > 0L
-        toolbar.menu.findItem(R.id.action_smart_route_default_status)?.title = routeLabel(default = true)
-        toolbar.menu.findItem(R.id.action_smart_route_bypass_status)?.title = routeLabel(default = false)
-        toolbar.title = if (selectedDomains.isEmpty()) {
-            getString(R.string.smart_route)
+        profileSelector.text = if (managedProfileId > 0L) {
+            profileName
         } else {
-            getString(R.string.smart_route_domains_count_selected, domainItems.size, selectedDomains.size)
+            getString(R.string.smart_route_draft_profile_named, profileName)
         }
-        domainAdapter.selected = selectedDomains.toSet()
-        domainAdapter.notifyDataSetChanged()
+
+        updateToolbarMode()
+    }
+
+    private fun confChipLabel(conf: String, label: String): String {
+        return if (conf.isBlank()) {
+            getString(R.string.smart_route_conf_chip_missing)
+        } else {
+            label.ifBlank { getString(R.string.smart_route_conf_source_saved) }
+        }
+    }
+
+    private fun updateToolbarMode() {
+        val selecting = selectedDomains.isNotEmpty()
+        selectionBackCallback.isEnabled = selecting
+        if (toolbarInSelectionMode != selecting) {
+            toolbarInSelectionMode = selecting
+            toolbar.menu.clear()
+            if (selecting) {
+                toolbar.inflateMenu(R.menu.smart_route_selection_menu)
+                toolbar.setNavigationIcon(R.drawable.ic_navigation_close)
+                toolbar.setNavigationOnClickListener { clearSelection() }
+            } else {
+                toolbar.inflateMenu(R.menu.smart_route_menu)
+                MenuCompat.setGroupDividerEnabled(toolbar.menu, true)
+                toolbar.setNavigationIcon(R.drawable.ic_navigation_menu)
+                toolbar.setNavigationOnClickListener {
+                    (activity as MainActivity).binding.drawerLayout.openDrawer(GravityCompat.START)
+                }
+            }
+        }
+        if (selecting) {
+            toolbar.title = getString(R.string.smart_route_selection_count, selectedDomains.size)
+        } else {
+            toolbar.title = getString(R.string.smart_route)
+            val saved = managedProfileId > 0L
+            toolbar.menu.findItem(R.id.action_smart_route_duplicate_profile)?.isEnabled = saved && hasCompleteConf()
+            toolbar.menu.findItem(R.id.action_smart_route_delete_profile)?.isEnabled = saved
+            toolbar.menu.findItem(R.id.action_smart_route_clear_all)?.isEnabled = domainItems.isNotEmpty()
+            toolbar.menu.findItem(R.id.action_smart_route_export)?.isEnabled = domainItems.isNotEmpty()
+        }
     }
 
     private fun hasCompleteConf() = defaultConf.isNotBlank() && bypassConf.isNotBlank()
@@ -940,18 +1321,18 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         } else {
             getString(R.string.smart_route_proxy_http_disabled)
         }
-        return getString(R.string.smart_route_proxy_status, socks, http)
+        return "$socks · $http"
     }
 
-    private fun smartRoutePrefs() = requireContext().getSharedPreferences("smart_route_profiles", android.content.Context.MODE_PRIVATE)
+    private fun smartRoutePrefs() = smartRoutePrefs(requireContext())
 
     private fun markChanged() {
         if (!loadingState) {
             hasUnsavedChanges = true
             generatedJson = ""
             persistSmartRouteState()
-            applyResponsiveState()
             saveProfileIfReady()
+            applyResponsiveState()
         }
     }
 
@@ -959,22 +1340,27 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         if (managedProfileId > 0L && hasCompleteConf()) saveProfile(silent = true)
     }
 
+    // ---- Profiles --------------------------------------------------------------------------
+
     private fun showProfilePicker() {
         runOnDefaultDispatcher {
-            val profiles = smartRouteProfiles()
+            val choices = smartRouteProfiles().map { profile ->
+                ProfileChoice(
+                    profile = profile,
+                    domainCount = extractSmartRouteState(profile.configBean?.content.orEmpty())?.domains?.size ?: 0,
+                )
+            }
+            val inUseId = DataStore.selectedProxy
             onMainDispatcher {
-                if (profiles.isEmpty()) {
+                if (view == null) return@onMainDispatcher
+                if (choices.isEmpty()) {
                     showMessage(R.string.smart_route_profile_empty)
                     showConfSheet()
                     return@onMainDispatcher
                 }
-                val names = profiles.map { profile ->
-                    val marker = if (profile.id == managedProfileId) getString(R.string.smart_route_profile_active_marker) else ""
-                    marker + profile.displayName()
-                }.toTypedArray()
                 MaterialAlertDialogBuilder(requireContext())
                     .setTitle(R.string.smart_route_select_profile_title)
-                    .setItems(names) { _, which -> selectProfile(profiles[which].id) }
+                    .setAdapter(ProfileChoiceAdapter(choices, inUseId)) { _, which -> selectProfile(choices[which].profile.id) }
                     .setPositiveButton(R.string.smart_route_new_profile) { _, _ -> startNewProfile() }
                     .setNegativeButton(android.R.string.cancel, null)
                     .show()
@@ -982,25 +1368,67 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         }
     }
 
+    private inner class ProfileChoiceAdapter(
+        private val choices: List<ProfileChoice>,
+        private val inUseId: Long,
+    ) : BaseAdapter() {
+        override fun getCount() = choices.size
+        override fun getItem(position: Int) = choices[position]
+        override fun getItemId(position: Int) = choices[position].profile.id
+
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+            val view = convertView ?: layoutInflater.inflate(android.R.layout.simple_list_item_2, parent, false)
+            val choice = choices[position]
+            val badges = listOfNotNull(
+                getString(R.string.smart_route_profile_in_use).takeIf { choice.profile.id == inUseId },
+                getString(R.string.smart_route_profile_editing).takeIf { choice.profile.id == managedProfileId },
+            )
+            val marker = if (choice.profile.id == inUseId) getString(R.string.smart_route_profile_active_marker) else ""
+            view.findViewById<TextView>(android.R.id.text1).text = marker + choice.profile.displayName()
+            view.findViewById<TextView>(android.R.id.text2).text =
+                (listOf(getString(R.string.smart_route_profile_summary_domains, choice.domainCount)) + badges)
+                    .joinToString(" · ")
+            return view
+        }
+    }
+
+    /** Explicit switch from the picker: load into the editor and make it the profile in use. */
     private fun selectProfile(profileId: Long) {
-        if (hasUnsavedDraft()) {
-            confirmDiscardDraft { loadSelectedProfile(profileId) }
-            return
-        }
-        loadSelectedProfile(profileId)
-    }
-
-    private fun loadSelectedProfile(profileId: Long) {
-        val profile = ProfileManager.getProfile(profileId) ?: run {
-            showMessage(R.string.smart_route_profile_missing)
-            return
-        }
-        if (!loadProfileIntoEditor(profile, announce = true)) {
-            showMessage(R.string.smart_route_profile_missing)
+        when {
+            hasUnsavedDraft() -> confirmDiscard(
+                R.string.smart_route_discard_draft_title,
+                getString(R.string.smart_route_discard_draft_message),
+            ) { switchToProfile(profileId) }
+            saveError != null -> confirmDiscard(
+                R.string.smart_route_save_failed_title,
+                saveError.orEmpty(),
+            ) { switchToProfile(profileId) }
+            else -> switchToProfile(profileId)
         }
     }
 
-    private fun loadProfileIntoEditor(profile: ProxyEntity, announce: Boolean): Boolean {
+    private fun switchToProfile(profileId: Long) {
+        val profile = ProfileManager.getProfile(profileId)
+        if (profile == null || !loadProfileIntoEditor(profile)) {
+            showMessage(R.string.smart_route_profile_missing)
+            return
+        }
+        val changed = DataStore.selectedProxy != profile.id
+        DataStore.selectedProxy = profile.id
+        DataStore.selectedGroup = profile.groupId
+        markSelectedProxySeen()
+        if (changed && SagerNet.started) {
+            clearPendingApply(requireContext())
+            SagerNet.reloadService()
+            showMessage(getString(R.string.smart_route_profile_selected_reloaded, profile.displayName()))
+        } else {
+            showMessage(getString(R.string.smart_route_profile_selected, profile.displayName()))
+        }
+        applyResponsiveState()
+    }
+
+    /** Loads a profile into the editor without changing the profile in use. */
+    private fun loadProfileIntoEditor(profile: ProxyEntity): Boolean {
         if (profile.type != ProxyEntity.TYPE_CONFIG || extractSmartRouteState(profile.configBean?.content.orEmpty()) == null) {
             return false
         }
@@ -1015,8 +1443,7 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         profileNameValue = profile.displayName().ifBlank { profileNameValue }
         loadingState = false
         hasUnsavedChanges = false
-        DataStore.selectedProxy = profile.id
-        DataStore.selectedGroup = profile.groupId
+        saveError = null
         smartRoutePrefs().edit()
             .putLong("manager.groupId", profile.groupId)
             .putLong("manager.activeProfileId", profile.id)
@@ -1025,7 +1452,6 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         renderDomainList()
         updateDomainPreview()
         applyResponsiveState()
-        if (announce) showMessage(getString(R.string.smart_route_profile_selected, profile.displayName()))
         return true
     }
 
@@ -1036,7 +1462,10 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
 
     private fun startNewProfile() {
         if (hasUnsavedDraft()) {
-            confirmDiscardDraft { resetNewProfile() }
+            confirmDiscard(
+                R.string.smart_route_discard_draft_title,
+                getString(R.string.smart_route_discard_draft_message),
+            ) { resetNewProfile() }
             return
         }
         resetNewProfile()
@@ -1047,6 +1476,7 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         loadingState = true
         resetSmartRouteState(nextProfileName())
         managedProfileId = 0L
+        saveError = null
         smartRoutePrefs().edit()
             .putLong("manager.activeProfileId", 0L)
             .putLong("manager.profileId", 0L)
@@ -1068,17 +1498,22 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         showConfSheet()
     }
 
-    private fun confirmDiscardDraft(onDiscard: () -> Unit) {
+    private fun confirmDiscard(titleRes: Int, message: String, onDiscard: () -> Unit) {
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.smart_route_discard_draft_title)
-            .setMessage(R.string.smart_route_discard_draft_message)
+            .setTitle(titleRes)
+            .setMessage(message)
             .setPositiveButton(R.string.smart_route_discard_draft_confirm) { _, _ -> onDiscard() }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 
     private fun duplicateCurrentProfile() {
-        val result = generateSmartRoute(updateDomainText = true, showErrors = true) ?: return
+        // A draft has nothing to duplicate yet; saving it is the right action.
+        if (managedProfileId <= 0L) {
+            saveProfile(silent = false)
+            return
+        }
+        val result = generateOrShow(updateDomainText = true) ?: return
         val sourceName = profileNameValue.ifBlank { getString(R.string.smart_route_default_profile_name) }
         val duplicateName = uniqueProfileName(getString(R.string.smart_route_profile_copy_name, sourceName))
         val prefs = smartRoutePrefs()
@@ -1096,8 +1531,6 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
                 GroupManager.postUpdate(group)
                 prefs.edit()
                     .putLong("manager.groupId", group.id)
-                    .putLong("manager.activeProfileId", profile.id)
-                    .putLong("manager.profileId", profile.id)
                     .putString("${profile.id}.name", duplicateName)
                     .putString("${profile.id}.defaultConf", defaultConf)
                     .putString("${profile.id}.bypassConf", bypassConf)
@@ -1110,11 +1543,15 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
                 profile
             }
             onMainDispatcher {
+                if (view == null) return@onMainDispatcher
                 saved.onFailure {
                     showError(getString(R.string.smart_route_save_failed))
                 }.onSuccess {
-                    selectProfile(it.id)
-                    showMessage(getString(R.string.smart_route_profile_duplicated, it.displayName()))
+                    if (loadProfileIntoEditor(it)) {
+                        showMessage(getString(R.string.smart_route_profile_duplicated, it.displayName()))
+                    } else {
+                        showMessage(R.string.smart_route_profile_missing)
+                    }
                 }
             }
         }
@@ -1139,10 +1576,10 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
     }
 
     private fun renameProfileTo(newName: String) {
+        if (newName == profileNameValue) return
         profileNameValue = newName
         if (managedProfileId <= 0L) {
             markChanged()
-            applyResponsiveState()
             return
         }
         runOnDefaultDispatcher {
@@ -1158,10 +1595,10 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
                 profile
             }
             onMainDispatcher {
+                if (view == null) return@onMainDispatcher
                 renamed.onFailure {
                     showError(getString(R.string.smart_route_save_failed))
                 }.onSuccess {
-                    hasUnsavedChanges = false
                     applyResponsiveState()
                     showMessage(R.string.smart_route_profile_renamed)
                 }
@@ -1195,6 +1632,7 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
                     .remove("${profile.id}.dnsServer")
                     .remove("${profile.id}.domains")
                     .remove("${profile.id}.json")
+                    .remove(pendingApplyKey(profile.id))
                     .apply {
                         if (prefs.getLong("manager.activeProfileId", 0L) == profile.id) {
                             putLong("manager.activeProfileId", 0L)
@@ -1202,17 +1640,16 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
                         }
                     }
                     .commit()
-                val next = smartRouteProfiles().firstOrNull()
-                next
+                smartRouteProfiles().firstOrNull()
             }.let { deleted ->
                 onMainDispatcher {
+                    if (view == null) return@onMainDispatcher
                     deleted.onFailure {
                         showError(getString(R.string.smart_route_save_failed))
                     }.onSuccess { next ->
-                        if (next != null) {
-                            selectProfile(next.id)
-                        } else {
-                            startNewProfile()
+                        managedProfileId = 0L
+                        if (next == null || !loadProfileIntoEditor(next)) {
+                            resetNewProfile()
                         }
                         showMessage(R.string.smart_route_profile_deleted)
                     }
@@ -1271,7 +1708,7 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
     }
 
     private suspend fun ensureSmartRouteGroup(
-        prefs: android.content.SharedPreferences,
+        prefs: SharedPreferences,
         groupName: String,
     ): ProxyGroup {
         prefs.getLong("manager.groupId", 0L)
@@ -1309,57 +1746,7 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
             .commit()
     }
 
-    private fun updateDomainPreview() {
-        val text = domainInput.text?.toString().orEmpty()
-        if (text.isBlank()) {
-            domainPreview.setText(R.string.smart_route_domain_preview_empty)
-            return
-        }
-        try {
-            val normalized = SmartRouteDomainNormalizer.normalizeLines(text)
-            domainPreview.text = when {
-                normalized.isEmpty() -> getString(R.string.smart_route_domain_preview_empty)
-                normalized.size == 1 -> getString(R.string.smart_route_domain_preview_one, normalized.first())
-                else -> getString(R.string.smart_route_domain_preview_many, normalized.size, normalized.first())
-            }
-        } catch (e: SmartRouteInputException) {
-            domainPreview.setText(R.string.smart_route_domain_preview_invalid)
-        }
-    }
-
-    private fun routeLabel(default: Boolean): String {
-        return if (default) {
-            if (defaultConf.isBlank()) {
-                getString(R.string.smart_route_default_conf_missing)
-            } else {
-                getString(
-                    R.string.smart_route_default_route_current,
-                    defaultConfLabel.ifBlank { getString(R.string.smart_route_conf_source_saved) },
-                )
-            }
-        } else {
-            if (bypassConf.isBlank()) {
-                getString(R.string.smart_route_bypass_conf_missing)
-            } else {
-                getString(
-                    R.string.smart_route_bypass_route_current,
-                    bypassConfLabel.ifBlank { getString(R.string.smart_route_conf_source_saved) },
-                )
-            }
-        }
-    }
-
-    private fun editDomainsAdvanced() {
-        editTextDialog(R.string.smart_route_advanced_domain_edit, domainItems.joinToString("\n")) {
-            try {
-                setDomains(SmartRouteDomainNormalizer.normalizeLines(it), resetSelection = true)
-                generatedJson = ""
-                markChanged()
-            } catch (e: SmartRouteInputException) {
-                showError(formatInputError(e))
-            }
-        }
-    }
+    // ---- Dialog helpers --------------------------------------------------------------------
 
     private fun editTextDialog(titleRes: Int, value: String, onSave: (String) -> Unit) {
         val edit = EditText(requireContext()).apply {
@@ -1447,14 +1834,17 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         }.getOrNull()
     }
 
+    private data class DomainRow(
+        val domain: String,
+        val selected: Boolean,
+        val selectionMode: Boolean,
+    )
+
     private inner class DomainAdapter(
         private val onClick: (String) -> Unit,
         private val onLongClick: (String) -> Boolean,
-        private val onEdit: (String) -> Unit,
         private val onDelete: (String) -> Unit,
-    ) : ListAdapter<String, DomainAdapter.DomainHolder>(DomainDiff) {
-
-        var selected: Set<String> = emptySet()
+    ) : ListAdapter<DomainRow, DomainAdapter.DomainHolder>(DomainDiff) {
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): DomainHolder {
             val view = layoutInflater.inflate(R.layout.layout_smart_route_domain_item, parent, false)
@@ -1468,25 +1858,43 @@ class SmartRouteFragment : ToolbarFragment(R.layout.layout_smart_route_settings)
         inner class DomainHolder(view: View) : RecyclerView.ViewHolder(view) {
             private val card = view.findViewById<MaterialCardView>(R.id.domain_card)
             private val domainText = view.findViewById<TextView>(R.id.domain_text)
-            private val editAction = view.findViewById<TextView>(R.id.domain_edit)
-            private val deleteAction = view.findViewById<TextView>(R.id.domain_delete)
+            private val deleteAction = view.findViewById<View>(R.id.domain_delete)
 
-            fun bind(domain: String) {
+            fun bind(row: DomainRow) {
+                val domain = row.domain
                 domainText.text = domain
-                val isSelected = domain in selected
-                editAction.visibility = if (isSelected) View.VISIBLE else View.GONE
-                deleteAction.visibility = if (isSelected) View.VISIBLE else View.GONE
-                card.isChecked = isSelected
-                itemView.setOnClickListener { onClick(domain) }
-                itemView.setOnLongClickListener { onLongClick(domain) }
-                editAction.setOnClickListener { onEdit(domain) }
+                card.isChecked = row.selected
+                // In selection mode the toolbar owns deletion; the per-row button would be ambiguous.
+                deleteAction.visibility = if (row.selectionMode) View.GONE else View.VISIBLE
+                card.setOnClickListener { onClick(domain) }
+                card.setOnLongClickListener { onLongClick(domain) }
                 deleteAction.setOnClickListener { onDelete(domain) }
             }
         }
     }
 
-    private object DomainDiff : DiffUtil.ItemCallback<String>() {
-        override fun areItemsTheSame(oldItem: String, newItem: String) = oldItem == newItem
-        override fun areContentsTheSame(oldItem: String, newItem: String) = oldItem == newItem
+    private object DomainDiff : DiffUtil.ItemCallback<DomainRow>() {
+        override fun areItemsTheSame(oldItem: DomainRow, newItem: DomainRow) = oldItem.domain == newItem.domain
+        override fun areContentsTheSame(oldItem: DomainRow, newItem: DomainRow) = oldItem == newItem
+    }
+
+    companion object {
+        private const val PREFS_NAME = "smart_route_profiles"
+
+        private fun smartRoutePrefs(context: Context): SharedPreferences =
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+        private fun pendingApplyKey(profileId: Long) = "$profileId.pendingApply"
+
+        /**
+         * The running service reloads profiles from the database whenever it (re)connects or stops,
+         * so any "saved but not applied" marker is stale after such a transition.
+         */
+        fun clearPendingApply(context: Context) {
+            val prefs = smartRoutePrefs(context)
+            val keys = prefs.all.keys.filter { it.endsWith(".pendingApply") }
+            if (keys.isEmpty()) return
+            prefs.edit().apply { keys.forEach { remove(it) } }.apply()
+        }
     }
 }

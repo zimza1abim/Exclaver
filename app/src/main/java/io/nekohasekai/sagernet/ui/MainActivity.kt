@@ -454,6 +454,11 @@ class MainActivity : ThemedActivity(),
 
     override fun stateChanged(state: BaseService.State, profileName: String?, msg: String?) {
         changeState(state, msg, true)
+        if (state == BaseService.State.Connected || state == BaseService.State.Stopped) {
+            // A (re)connect or stop loads the latest saved profile, so nothing is pending anymore.
+            SmartRouteFragment.clearPendingApply(this)
+        }
+        (supportFragmentManager.findFragmentById(R.id.fragment_holder) as? SmartRouteFragment)?.onServiceStateChanged()
     }
 
     override fun statsUpdated(stats: List<AppStats>) {

@@ -300,4 +300,13 @@
     <color name="ansi_bright_magenta">#A36AC7</color>
     <color name="ansi_bright_cyan">#3971ED</color>
     <color name="ansi_bright_white">#ffffff</color>
+    <color name="smart_route_input_bg">#FFFFFF</color>
+    <color name="smart_route_input_stroke">#DADCE0</color>
+    <color name="smart_route_input_text">#202124</color>
+    <color name="smart_route_input_hint">#6B7280</color>
+    <color name="smart_route_status_ok">#2E7D32</color>
+    <color name="smart_route_status_pending">#F57F17</color>
+    <color name="smart_route_status_error">#D32F2F</color>
+    <color name="smart_route_status_idle">#9E9E9E</color>
+    <color name="smart_route_info_bg">#F5F5F5</color>
 </resources>

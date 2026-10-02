@@ -3,4 +3,13 @@
     <color name="fab_color_progress">@color/material_light_white</color>
     <color name="dropdown_color_background">#3A3A3A</color>
     <color name="dropdown_color_selected">#4F4F4F</color>
+    <color name="smart_route_input_bg">#2B2B2B</color>
+    <color name="smart_route_input_stroke">#4A4A4A</color>
+    <color name="smart_route_input_text">#E8EAED</color>
+    <color name="smart_route_input_hint">#9AA0A6</color>
+    <color name="smart_route_status_ok">#81C784</color>
+    <color name="smart_route_status_pending">#FFB74D</color>
+    <color name="smart_route_status_error">#EF9A9A</color>
+    <color name="smart_route_status_idle">#9E9E9E</color>
+    <color name="smart_route_info_bg">#383838</color>
 </resources>
