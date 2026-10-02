@@ -12,3 +12,19 @@ release.keystore
 jniLibs/
 go.work
 go.work.sum
+
+# Signing keys and credentials
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.key
+keystore.properties
+signing.properties
+.env
+.env.*
+
+# Personal VPN configs and exported data
+*.conf
+smart-route-domains*.txt
+*.backup.json
